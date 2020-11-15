@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+  <!-- This argument sets the initial joint states -->
+  <arg name="initial_joint_states"
+    default=" -J panda_joint1 0.000
+              -J panda_joint2 -0.785
+              -J panda_joint3 0.0
+              -J panda_joint4 -2.356
+              -J panda_joint5 0.0
+              -J panda_joint6 1.57
+              -J panda_joint7 0.785"/>
+
+    <!-- GAZEBO arguments -->
+    <arg name="paused" default="false"/>
+    <arg name="use_sim_time" default="true"/>
+    <arg name="gui" default="true"/>
+    <arg name="headless" default="false"/>
+    <arg name="debug" default="false"/>
+    <arg name="load_gripper" default="false"/>
+
+
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+      	<arg name="debug" value="$(arg debug)"/>
+        <arg name="gui" value="$(arg gui)"/>
+        <arg name="paused" value="$(arg paused)"/>
+        <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+        <arg name="headless" value="$(arg headless)"/>
+    </include> 
+
+</launch>

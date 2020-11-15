@@ -1,0 +1,37 @@
+    # Publish joint states
+    joint_state_controller:
+        type: joint_state_controller/JointStateController
+        publish_rate: 1000
+
+    panda_joint1_controller:
+        type: effort_controllers/JointEffortController
+        joint: panda_joint1
+
+
+    panda_joint2_controller:
+        type: effort_controllers/JointEffortController
+        joint: panda_joint2
+
+
+    panda_joint3_controller:
+        type: effort_controllers/JointEffortController
+        joint: panda_joint3
+
+
+    panda_joint4_controller:
+        type: effort_controllers/JointEffortController
+        joint: panda_joint4
+
+    panda_joint5_controller:
+        type: effort_controllers/JointEffortController
+        joint: panda_joint5
+
+
+    panda_joint6_controller:
+        type: effort_controllers/JointEffortController
+        joint: panda_joint6
+
+
+    panda_joint7_controller:
+        type: effort_controllers/JointEffortController
+        joint: panda_joint7

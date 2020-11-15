@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+
+    <!-- Robots -->
+    <!-- Load joint effort controller configurations from YAML file to parameter server -->
+    <group ns="/robot1">
+        <param name="tf_prefix" value="panda1" />
+        <param name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm_world.urdf.xacro"/>
+        <!--rosparam file="$(find panda_simulation)/config/panda_controltorque.yaml" command="load" ns="/robot1"/-->
+
+  	<node name="rviz" pkg="rviz"  type="rviz" />
+
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
+
+    	<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" >
+        	<param name="use_gui" value="True"/>
+    	</node>
+    </group>
+
+
+
+</launch>

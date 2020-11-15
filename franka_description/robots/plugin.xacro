@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<!--libgazebo_ros_tricycle_drive.so       libmy_controller_lib.so-->
+  <xacro:macro name="gravity_compensation_test">
+    <gazebo>
+ 	<plugin name="gravity_compensation" filename="libGravityCompensationPlugin.so">
+		<uri>model://franka_description</uri>
+	</plugin>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:macro name="differential_drive">
+        <gazebo>
+            <plugin name="differential_drive_controller" 
+                    filename="libgazebo_ros_diff_drive.so">
+                <rosDebugLevel>Debug</rosDebugLevel>
+                <publishWheelTF>true</publishWheelTF>
+                <robotNamespace>/</robotNamespace>
+                <publishTf>1</publishTf>
+                <publishWheelJointState>true</publishWheelJointState>
+                <alwaysOn>true</alwaysOn>
+                <updateRate>100.0</updateRate>
+                <legacyMode>true</legacyMode>
+                <leftJoint>left_wheel_joint</leftJoint>
+                <rightJoint>right_wheel_joint</rightJoint>
+                <wheelSeparation>${DY}</wheelSeparation>
+                <wheelDiameter>${2*radius_actuated_wheel}</wheelDiameter>
+                <broadcastTF>1</broadcastTF>
+                <wheelTorque>30</wheelTorque>
+                <wheelAcceleration>1.8</wheelAcceleration>
+                <commandTopic>cmd_vel</commandTopic>
+                <odometryFrame>odom</odometryFrame> 
+                <odometryTopic>odom</odometryTopic> 
+                <robotBaseFrame>base_link</robotBaseFrame>
+            </plugin>
+        </gazebo> 
+  </xacro:macro>
+
+</robot>
