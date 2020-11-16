@@ -13,38 +13,46 @@ MotionPlanner::MotionPlanner(ros::NodeHandle& nh){
     trajPub_ =  nh_.advertise<trajectory_msgs::JointTrajectory>("/robot1/jointTrajectory", 2);
 
     position_desire_data_ = DM(1,3);
-    orientation_desire_data_ = DM(3,3);
     Q0_data_ = DM(7,1);
+    position_desire_data_(0)=0.428; position_desire_data_(1)=0.425; position_desire_data_(2)=0.575;
 
     N_ = 0;
-    x0_data_ = DM(19*(N_+1),1);
-    position_desire_data_(0)=0.428; position_desire_data_(1)=0.425; position_desire_data_(2)=0.575;
-    position_desired_ = SX::sym("pos_d",1,3);
-    orientation_desired_ = SX::sym("ori_d",3,3);
+
 
     max_limit ={2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973};
     min_limit ={ -2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973};
+    dq_min_limit = {-2.1750, -2.1750, -2.1750, -2.1750, -2.6100, -2.6100, -2.6100};
+    dq_max_limit = {2.1750, 2.1750, 2.1750, 2.1750, 2.6100, 2.6100, 2.6100};
     vector<double> avg_limit_v = {0, 0, 0, -1.5708, 0, 1.8675, 0};
     vector<double> delta_limit_v = {2.8973*2, 1.7628*2, 2.8973*2, 3.0718-0.0698, 2.8973*2, 3.7525+0.0175, 2.8973*2};
 
     SX avg_limit(avg_limit_v);
     SX delta_limit(delta_limit_v);
 
+    first_solve_ = true;
+//    buildModel();
+    buildIKModel();
+}
+
+void MotionPlanner::buildIKModel(){
     Slice all;
     Slice pos_slice(0,3);
     Slice ori_slice(3,12);
     Slice last_col(3,4);
-     // ---- decision variables ---------
+
+    x0_data_ = DM(19*(N_+1),1);
+    orientation_desire_data_ = DM(3,3);
+    // ---- decision variables ---------
     X_ = SX::sym("X", 12,N_+1); // state trajectory
     Q_ = SX::sym("Q", 7,N_+1); // joint trajectory
-
     auto pos = X_(pos_slice,all);
     auto ori = X_(ori_slice,all);
-
+    // ---- parameter variables ---------
+    position_desired_ = SX::sym("pos_d",1,3);
+    orientation_desired_ = SX::sym("ori_d",3,3);
+    // ---- cost function ---------
     SX f;
-    SX g(3*(N_+1), 1);  SX g_inital(6*(N_+1), 1);
-
-    // ---- cost func --------
+#if 0
     SX weight = SX(1,7); weight(0)=8; weight(1)=7; weight(2)=6; weight(3)=5; weight(4)=4; weight(5)=3; weight(6)=2;
     for(uint i=0; i<N_+1; i++){
         for(uint j=0; j<7; j++) {
@@ -52,59 +60,150 @@ MotionPlanner::MotionPlanner(ros::NodeHandle& nh){
             f += pow((Q_(j, i) - avg_limit(j)) / delta_limit(j), 2);
         }
     }
-
-     // ---- fk constraints --------
+#endif
+    // ---- equality constraints ---------
+    SX g(3*(N_+1), 1);  SX g_inital(6*(N_+1), 1);
+    // ---- fk constraints --------
     for (int k=0;k<N_+1;++k) {
         SX transform =  forwardKinematic( Q_(all, k));
 
-        g(0+k*12) = pos(0,k) - transform(0, last_col);
-        g(1+k*12) = pos(1,k) - transform(1, last_col);
-        g(2+k*12) = pos(2,k) - transform(2, last_col);
+        g(0+k*3) = pos(0,k) - transform(0, last_col);
+        g(1+k*3) = pos(1,k) - transform(1, last_col);
+        g(2+k*3) = pos(2,k) - transform(2, last_col);
 
+        g_inital(0+k*6) = pos(0,k) - position_desired_(0);
+        g_inital(1+k*6) = pos(1,k) - position_desired_(1);
+        g_inital(2+k*6) = pos(2,k) - position_desired_(2);
 
-        g_inital(0+k*12) = pos(0,k) - position_desired_(0);
-        g_inital(1+k*12) = pos(1,k) - position_desired_(1);
-        g_inital(2+k*12) = pos(2,k) - position_desired_(2);
-
-        auto ori_error = oriError(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
-        for(auto i=0; i<3; i++){
-            g_inital(3+k*12+i) = ori_error(i);
-        }
-
+        auto ori_error = oriError2(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
+        g_inital(3+k*6) = ori_error(0);
+        g_inital(4+k*6) = ori_error(1);
+        g_inital(5+k*6) = ori_error(2);
     }
-
-    // ---- X, joint limit constraints --------
-
+    // ----bounds--------
     vector<double> lbx_vec, ubx_vec;
     for(auto i=0; i<(N_+1)*3; i++){
         lbx_vec.push_back(-2);  // X range  TODO modify
         ubx_vec.push_back(2);
     }
     for(auto i=0; i<(N_+1)*9; i++){
-        lbx_vec.push_back(-3);  // X range
+        lbx_vec.push_back(-3);
         ubx_vec.push_back(3);
     }
     for(auto i=0; i<N_+1; i++){
         lbx_vec.insert(lbx_vec.end(), min_limit.begin(), min_limit.end());  // joint range
         ubx_vec.insert(ubx_vec.end(), max_limit.begin(), max_limit.end());
     }
+
+    SXDict nlp = {{"x", SX::vertcat({vec(X_), vec(Q_)})},
+                  {"f", f},
+                  {"g", vertcat(g, g_inital)},
+                  {"p", vertcat(position_desired_, orientation_desired_) } };
+
+    // ----arg--------
     arg_["lbx"] =lbx_vec; arg_["ubx"] =ubx_vec;
     arg_["lbg"] = arg_["ubg"] = 0;
-
-     SXDict nlp = {{"x", SX::vertcat({vec(X_), vec(Q_)})},
-                   {"f", f},
-                   {"g", vertcat(g, g_inital)},
-                   {"p", vertcat(position_desired_, orientation_desired_) } };
 
     Dict opts;
     opts["ipopt.print_level"] = 0;
 
-    // Create an NLP solver
-    solver_ = nlpsol("solver", "ipopt", nlp, opts);
- //    cout << nlp["p"]  << endl;
+     solver_ = nlpsol("solver", "ipopt", nlp, opts);
 
     // --- q kinematic
-    // bounds
+    // colllision avoidance
+}
+
+void MotionPlanner::buildModel() {
+    orientation_desire_data_ = DM(1,9);
+
+    Slice all;
+    Slice pos_slice(0,3);
+    Slice ori_slice(3,12);
+    Slice last_col(3,4);
+    N_ = 0;
+
+    x0_data_ = DM(17*N_+10, 1);
+    // ---- decision variables ---------
+    X_ = SX::sym("X", 3,N_+1); // state trajectory
+    Q_ = SX::sym("Q", 7,N_+1); // joint trajectory
+    dQ_ = SX::sym("dQ", 7,N_); // joint trajectory
+    double dt = 0.2;
+    auto pos = X_(pos_slice,all);
+    // ---- parameter variables ---------
+    position_desired_ = SX::sym("pos_d",1,3);
+    orientation_desired_ = SX::sym("ori_d",1,9);
+//    feedback_variable_ =  SX::sym("feedback",3,3);
+    // ---- cost function ---------
+    SX f;
+#if 0
+    SX weight = SX(1,7); weight(0)=8; weight(1)=7; weight(2)=6; weight(3)=5; weight(4)=4; weight(5)=3; weight(6)=2;
+    for(uint i=0; i<N_+1; i++){
+        for(uint j=0; j<7; j++) {
+
+            f += pow((Q_(j, i) - avg_limit(j)) / delta_limit(j), 2);
+        }
+    }
+#endif
+    for(uint k=0; k<N_+1; ++k){
+        for(uint i=0; i<3; i++)
+            f += pow(pos(i,k) - position_desired_(i), 2);
+    }
+    for(uint k=0; k<N_; ++k){
+        for(uint i=0; i<7; i++)
+            f += pow(dQ_(i, k), 2)*0.1;
+    }
+    // ---- equality constraints ---------
+    SX g(3*(N_+1), 1); SX g_orientation(3*(N_+1), 1);  SX g_q_kin(7*(N_), 1); SX g_inital(17,1);
+    // ---- fk constraints --------
+    for (int k=0;k<N_+1;++k) {
+        SX transform =  forwardKinematic( Q_(all, k));
+        g(0+k*3) = pos(0,k) - transform(0, last_col);
+        g(1+k*3) = pos(1,k) - transform(1, last_col);
+        g(2+k*3) = pos(2,k) - transform(2, last_col);
+
+        auto ori_error = oriError(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
+        g_orientation(0+k*3) = ori_error(0);
+        g_orientation(1+k*3) = ori_error(1);
+        g_orientation(2+k*3) = ori_error(2);
+    }
+    // ---- joint differential kinematics --------
+    for (int k=1; k<N_+1; ++k) {
+        for(uint i=0; i<7; i++){
+            g_q_kin(i+7*(k-1)) = Q_(i,k) - Q_(i,k-1) - dQ_(i,k-1)*dt;
+         }
+    }
+    // ---- joint differential kinematics --------
+
+    // ----bounds--------
+    vector<double> lbx_vec, ubx_vec;
+    for(auto i=0; i<(N_+1)*3; i++){
+        lbx_vec.push_back(-2);  // X range  TODO modify
+        ubx_vec.push_back(2);
+    }
+    for(auto i=0; i<N_+1; i++){
+        lbx_vec.insert(lbx_vec.end(), min_limit.begin(), min_limit.end());  // joint range
+        ubx_vec.insert(ubx_vec.end(), max_limit.begin(), max_limit.end());
+    }
+    for(auto i=0; i<N_; i++){
+        lbx_vec.insert(lbx_vec.end(), dq_min_limit.begin(), dq_min_limit.end());  // joint speed range
+        ubx_vec.insert(ubx_vec.end(), dq_max_limit.begin(), dq_max_limit.end());
+    }
+
+    SXDict nlp = {{"x", SX::vertcat({vec(X_), vec(Q_), vec(dQ_)})},
+                  {"f", f},
+                  {"g", vertcat(g, g_orientation, g_q_kin)},
+                  {"p", vertcat(position_desired_, orientation_desired_) } };
+
+    // ----arg--------
+    arg_["lbx"] =lbx_vec; arg_["ubx"] =ubx_vec;
+    arg_["lbg"] = arg_["ubg"] = 0;
+
+    Dict opts;
+    opts["ipopt.print_level"] = 0;
+
+    solver_ = nlpsol("solver", "ipopt", nlp, opts);
+
+    // --- q kinematic
     // colllision avoidance
 }
 
@@ -123,8 +222,186 @@ Eigen::Vector7d MotionPlanner::iKSolv(const Eigen::Affine3d & goal_pose, const E
 #endif
 //    cout << res.at("g") << endl;
     return copyOut( res.at("x"));
+}
+
+Eigen::Vector7d MotionPlanner::MPCSolv(const Eigen::Affine3d & goal_pose, const Eigen::Vector7d & current_q){
+    initial(goal_pose, current_q);
+
+    arg_["x0"] = x0_data_;
+    arg_["p"]  = vertcat(position_desire_data_,  orientation_desire_data_);
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    DMDict res = solver_(arg_);
+
+#if 0
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    double tim = std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count();
+    pair<DM, double> info = make_pair(res.at("g"), tim);
+    solver_info.push_back(info);
+#endif
+//    cout << res.at("g") << endl;
+    if(first_solve_)
+        first_solve_ = false;
+    return copyOut( res.at("x"));
 
 }
+
+
+
+void MotionPlanner::receivX(const Eigen::Affine3d & goal_pose, const Eigen::Vector7d & current_q){
+    /*for ik*/
+    Eigen::Vector3d position = goal_pose.translation();
+    Eigen::Matrix3d ori = goal_pose.linear();
+
+    for(uint i=0; i<3; i++){
+        position_desire_data_(i) = position(i);
+     }
+    for(uint i=0; i<3; i++){
+        for(uint j=0; j<3; j++){
+            orientation_desire_data_(i,j) = ori(i,j);
+        }
+    }
+
+    for(uint i=0; i<3; i++){
+         x0_data_(i) = position(i);
+    }
+    for(uint i=0; i<3; i++){
+        for(uint j=0; j<3; j++){
+            x0_data_(3+j+i*3) = ori(j,i);
+        }
+    }
+
+    for(uint i=12; i<19; i++){
+        x0_data_(i) = current_q(i-12);
+//        Q0_data_(i-12) = current_q(i-12);
+    }
+}
+
+void MotionPlanner::initial(const Eigen::Affine3d& goal_pose, const Eigen::Vector7d& current_q){
+    Eigen::Vector3d position = goal_pose.translation();
+    Eigen::Matrix3d ori = goal_pose.linear();
+
+    for(uint i=0; i<3; i++){
+        position_desire_data_(i) = position(i);
+    }
+    for(uint i=0; i<3; i++){
+        for(uint j=0; j<3; j++){
+            orientation_desire_data_(j+i*3) = ori(j,i);
+        }
+    }
+
+    if(first_solve_){
+        for(uint k=0; k<N_+1; k++){
+            for(uint i=0; i<3; i++)
+                x0_data_(i+k*3) = position(i);
+        }
+        for(uint k=0; k<N_+1; k++){
+            for(uint i=0; i<7; i++)
+                x0_data_(3*(N_+1) + i + k*7) = current_q(i);
+        }
+        for(uint k=0; k<N_; k++){
+            for(uint i=0; i<7; i++)
+                x0_data_(10*(N_+1) + i + k*7) = 0;
+        }
+    }
+    else{
+         x0_data_ = last_x_;
+    }
+
+
+}
+
+
+Eigen::Vector7d MotionPlanner::followTrajectoryOptim(Panda& robot){
+    double x_d = 0.428;
+    double y_d = 0.425;
+    double z_d = 0.575;
+    double time_max = 20.0;
+    double radius = 0.2;
+
+    std::array<double, 16> pose_goal = {0.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, x_d, y_d, z_d, 1.0};
+
+    auto time_main_ = ros::Time::now().toSec();
+    if(time_main_>=10 && time_main_<=30){
+        double angle = M_PI * (1 - std::cos(M_PI / time_max * (time_main_-10)));
+        double delta_x = radius * std::sin(angle) * std::cos(angle);
+        double delta_y = radius * std::sin(angle);
+        pose_goal[12]=x_d-delta_x;
+        pose_goal[13]=y_d-delta_y;
+    }
+    else if(time_main_>=30){
+        pose_goal[12]=x_d;
+        pose_goal[13]=y_d;
+    }
+//    pose_goal = {1,0,0,0, 0,1,0,0, 0,0,1,0 , 0.5, 0.1, 0.5, 1};
+//    pose_goal = {0,1,0,0, -1,0,0,0, 0,0,1,0 , 0.8, 0, 0.6, 1};
+
+    Eigen::Affine3d goal_transform(Eigen::Matrix4d::Map(pose_goal.data()));
+    Eigen::Vector7d q_desired = iKSolv(goal_transform, jointPos_);
+
+    if(time_main_>=10 && time_main_<=time_max+10){
+        robot.setJoints(jointPos_,Eigen::Vector7d::Zero());
+        auto cur_transform = robot.fkEE();
+        Eigen::Vector3d cur_position(cur_transform.translation());
+
+        ee_data.push_back({cur_position(0), cur_position(1), cur_position(2)}); // record data
+    }
+//    ee_desired_data.push_back({pose_goal[12], pose_goal[13], pose_goal[14]});
+
+#if 1
+    if(time_main_>=10 && time_main_<=time_max+10){
+        robot.setJoints(q_desired, Eigen::Vector7d::Zero());
+        Eigen::Affine3d desir_transform = robot.fkEE();
+        Eigen::Vector3d desir_position(desir_transform.translation());
+
+        ee_calculated_desired_data.push_back({desir_position(0), desir_position(1), desir_position(2)}); // record data
+    }
+#endif
+    return q_desired;
+}
+
+Eigen::Vector7d MotionPlanner::generateTrajectory(Panda& robot){
+    double x_d = 0.428;
+    double y_d = 0.425;
+    double z_d = 0.575;
+    double time_max = 20.0;
+    double radius = 0.2;
+
+    std::array<double, 16> pose_goal = {0.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, x_d, y_d, z_d, 1.0};
+
+    auto time_main_ = ros::Time::now().toSec();
+    if(time_main_<=10  ){
+        pose_goal[12]=x_d;
+        pose_goal[13]=y_d;
+    }
+    else  {
+        pose_goal[12]=x_d+0.8;
+        pose_goal[13]=y_d;
+    }
+
+    Eigen::Affine3d goal_transform(Eigen::Matrix4d::Map(pose_goal.data()));
+    Eigen::Vector7d q_desired = MPCSolv(goal_transform, jointPos_);
+
+    if(time_main_>=10 && time_main_<=time_max+10){
+        robot.setJoints(jointPos_,Eigen::Vector7d::Zero());
+        auto cur_transform = robot.fkEE();
+        Eigen::Vector3d cur_position(cur_transform.translation());
+
+        ee_data.push_back({cur_position(0), cur_position(1), cur_position(2)}); // record data
+    }
+//    ee_desired_data.push_back({pose_goal[12], pose_goal[13], pose_goal[14]});
+
+#if 1
+    if(time_main_>=10 && time_main_<=time_max+10){
+        robot.setJoints(q_desired, Eigen::Vector7d::Zero());
+        Eigen::Affine3d desir_transform = robot.fkEE();
+        Eigen::Vector3d desir_position(desir_transform.translation());
+
+        ee_calculated_desired_data.push_back({desir_position(0), desir_position(1), desir_position(2)}); // record data
+    }
+#endif
+    return q_desired;
+}
+
 
 SX MotionPlanner::forwardKinematic(const SX& Q){
     auto c1 = cos(Q(0)); auto s1 = sin(Q(0));
@@ -241,18 +518,38 @@ SX MotionPlanner::forwardKinematic(const SX& Q){
     return  T_J9;
 }
 
+
 SX MotionPlanner::oriError(const SX& r, const SX& r2){
 
-    auto r_reshaped = reshape(r,3,3);
-    SX error = mtimes(r_reshaped, r2.T());
+//    auto r_reshaped = reshape(r,3,3);
+    auto r_reshaped2 = reshape(r2,3,3);
+
+
+    SX error = mtimes(r, r_reshaped2.T());
     SX res(3,1);
     res(0) =  error(2,1) - error(1,2);
     res(1) =  error(0,2) - error(2,0);
     res(2) =  error(1,0) - error(0,1);
 
-//    SX I = SX::eye(3);
-//    SX res =  norm_1(mtimes(r_reshaped, r2.T() ) - I);
-    return res*0.5;
+    return res;
+//    return res*0.5;
+
+}
+
+SX MotionPlanner::oriError2(const SX& r, const SX& r2){
+
+     auto r_reshaped2 = reshape(r2,3,3);
+
+    Slice all;
+    SX res(3,1);
+
+     res(0) = mtimes(r(all, 0).T(), r_reshaped2(all, 0 )) - 1;
+     res(1) = mtimes(r(all, 1).T(), r_reshaped2(all, 1 )) - 1;
+     res(2) = mtimes(r(all, 2).T(), r_reshaped2(all, 2 )) - 1;
+
+    return res;
+//    return res*0.5;
+
 }
 
 SX MotionPlanner::oriEqual(const SX& r, const SX& r2){
@@ -263,15 +560,24 @@ SX MotionPlanner::oriEqual(const SX& r, const SX& r2){
     return res;
 }
 
-//SX MotionPlanner::quaternionError(const SX& r, const SX& ori_desired){
-////    cout << r << endl;
-//    auto r_reshaped = reshape(r,3,3);
-//    SX quat_desired(4,1);
-//
-//
-//    return res;
-//}
+#if 0
+SX MotionPlanner::quaternionError(const SX& r, const SX& ori_desired){
+//    cout << r << endl;
+    auto r_reshaped = reshape(r,3,3);
+    SX quat_desired(4,1);
+    quat_desired(0) = 0.5*pow(1+ori_desired(0,0)+ori_desired(1,1)+ori_desired(2,2), 0.5);
+    quat_desired(1) = (ori_desired(2,1)-ori_desired(1,2)) / (4*quat_desired(0));
+    quat_desired(0) = (ori_desired(0,2)-ori_desired(2,0)) / (4*quat_desired(0));
+    quat_desired(0) = (ori_desired(1,0)-ori_desired(0,1)) / (4*quat_desired(0));
+    SX quat_cur(4,1);
+    quat_cur(0) = 0.5*pow(1+r_reshaped(0,0)+r_reshaped(1,1)+r_reshaped(2,2), 0.5);
+    quat_cur(1) = (r_reshaped(2,1)-r_reshaped(1,2)) / (4*quat_cur(0));
+    quat_cur(0) = (r_reshaped(0,2)-r_reshaped(2,0)) / (4*quat_cur(0));
+    quat_cur(0) = (r_reshaped(1,0)-r_reshaped(0,1)) / (4*quat_cur(0));
 
+    return res;
+}
+#endif
 
 void MotionPlanner::copy(SX & mx, const vector<vector<SX>>& data){
     for(uint i=0; i<4; i++){
@@ -284,89 +590,13 @@ void MotionPlanner::copy(SX & mx, const vector<vector<SX>>& data){
 Eigen::Vector7d MotionPlanner::copyOut(const DM& data){
 
     vector<double> vector_x = static_cast<std::vector<double>>(data);
+    last_x_ = vector_x;
+
     Eigen::Vector7d out;
     for(auto i=0; i<7; i++)
         out(i) = vector_x[i+12];
-    //TODO modify speed up
+
     return out;
-}
-
-void MotionPlanner::receivX(const Eigen::Affine3d & goal_pose, const Eigen::Vector7d & current_q){
-    Eigen::Vector3d position = goal_pose.translation();
-    Eigen::Matrix3d ori = goal_pose.linear();
-
-    for(uint i=0; i<3; i++){
-        position_desire_data_(i) = position(i);
-     }
-    for(uint i=0; i<3; i++){
-        for(uint j=0; j<3; j++){
-            orientation_desire_data_(i,j) = ori(i,j);
-        }
-    }
-
-    for(uint i=0; i<3; i++){
-         x0_data_(i) = position(i);
-    }
-    for(uint i=0; i<3; i++){
-        for(uint j=0; j<3; j++){
-            x0_data_(3+j+i*3) = ori(j,i);
-        }
-    }
-
-    for(uint i=12; i<19; i++){
-        x0_data_(i) = current_q(i-12);
-//        Q0_data_(i-12) = current_q(i-12);
-    }
-
-
-}
-
-
-Eigen::Vector7d MotionPlanner::followTrajectoryOptim(Panda& robot){
-    double x_d = 0.428;
-    double y_d = 0.425;
-    double z_d = 0.575;
-    double time_max = 20.0;
-    double radius = 0.2;
-
-    std::array<double, 16> pose_goal = {0.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, x_d, y_d, z_d, 1.0};
-
-    auto time_main_ = ros::Time::now().toSec();
-
-    if(time_main_>=10 && time_main_<=30){
-        double angle = M_PI * (1 - std::cos(M_PI / time_max * (time_main_-10)));
-        double delta_x = radius * std::sin(angle) * std::cos(angle);
-        double delta_y = radius * std::sin(angle);
-        pose_goal[12]=x_d-delta_x;
-        pose_goal[13]=y_d-delta_y;
-    }
-    else if(time_main_>=30){
-        pose_goal[12]=x_d;
-        pose_goal[13]=y_d;
-    }
-
-    Eigen::Affine3d goal_transform(Eigen::Matrix4d::Map(pose_goal.data()));
-     Eigen::Vector7d q_desired = iKSolv(goal_transform, jointPos_);
-
-    if(time_main_>=10 && time_main_<=time_max+10){
-        robot.setJoints(jointPos_,Eigen::Vector7d::Zero());
-        auto cur_transform = robot.fkEE();
-        Eigen::Vector3d cur_position(cur_transform.translation());
-
-        ee_data.push_back({cur_position(0), cur_position(1), cur_position(2)}); // record data
-    }
-//    ee_desired_data.push_back({pose_goal[12], pose_goal[13], pose_goal[14]});
-
-#if 0
-    if(time_main_>=10 && time_main_<=time_max+10){
-        robot.setJoints(q_desired, Eigen::Vector7d::Zero());
-        Eigen::Affine3d desir_transform = robot.fkEE();
-        Eigen::Vector3d desir_position(desir_transform.translation());
-
-        ee_calculated_desired_data.push_back({desir_position(0), desir_position(1), desir_position(2)}); // record data
-    }
-#endif
-    return q_desired;
 }
 
 void MotionPlanner::pubTrajectory(const Eigen::Vector7d& trajectory){

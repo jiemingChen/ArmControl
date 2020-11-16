@@ -17,7 +17,7 @@ int main(int argc, char **argv){
     Panda robot;
     Controller controller;
 
-    controller.setGoal(robot);
+//    controller.setGoal(robot);
 
     torqueThread(controller, robot);
 
