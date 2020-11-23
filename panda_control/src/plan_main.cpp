@@ -64,20 +64,30 @@ int main(int argc, char **argv){
     planningThread(planner, robot, visual);
 
 //    write_ee_data();
+    write_solver_data();
 }
 #endif
 
 void planningThread(MotionPlanner& planner,  Panda& robot, Visual& visual){
     ros::Rate rate(100);
-    double i=0;
+    planner.setGoal(robot);
+    planner.setObstacles();
+    planner.buildModel2();
     while (ros::ok()) {
         ros::spinOnce();
         rate.sleep();
+        if(!planner.receiveFeedback())
+            continue;
+        if(ros::Time::now().toSec()<=10 )
+            continue;
 
-        auto cal_q= planner.followTrajectoryOptim(robot);
+//        auto cal_q= planner.followTrajectoryOptim(robot);
+        auto cal_q=  planner.generateJointTrajectory(robot);
+//        auto cal_q=  planner.generateTrajectory(robot);
+
         planner.pubTrajectory(cal_q);
-//        planner.generateTrajectory(robot);
         visual.pubPath();
+        visual.pubObs();
 
     }
 

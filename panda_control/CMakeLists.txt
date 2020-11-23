@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
 		trac_ik_lib
 		nav_msgs
 		trajectory_msgs
-
+		visualization_msgs
 	eigen_conversions
 )
 find_package(Eigen3 REQUIRED)
@@ -69,9 +69,18 @@ target_link_libraries(${PROJECT_NAME}_INVDYN
 		${catkin_LIBRARIES}
 		/home/jieming/catkin_ws/src/panda_simulation/panda_control/lib/libfranka_model.a
 		${orocos_kdl_LIBRARIES}
-		casadi
 )
 
+add_executable(${PROJECT_NAME}_home src/reset_main.cpp src/Panda.cpp  src/motion_planner.cpp)
+
+add_dependencies(${PROJECT_NAME}_home ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(${PROJECT_NAME}_home
+		${catkin_LIBRARIES}
+		/home/jieming/catkin_ws/src/panda_simulation/panda_control/lib/libfranka_model.a
+		${orocos_kdl_LIBRARIES}
+		casadi
+		)
 
 
 ## Declare a C++ library

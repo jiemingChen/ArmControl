@@ -31,10 +31,10 @@ Controller::Controller(){
     orientationErrorPub =  nh.advertise<std_msgs::Float64>("/robot1/orientation_error", 20);
     positionErrorPub =  nh.advertise<msg_pkg::TransformationError>("/robot1/position_error", 20);
 
-//    q_init_ << 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785;
-    q_init_ << -2.65559, 0.134273, -2.73843, -2.02237, -1.78129,  2.22934, -0.366547;
+    q_init_ << 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785;  // home joints
+//    q_init_ << -2.65559, 0.134273, -2.73843, -2.02237, -1.78129,  2.22934, -0.366547;
 
-    jointPos = q_init_; q_desired_=q_init_;
+     jointPos = q_init_; q_desired_=q_init_;
     jointVel.setZero();
 
     time_main_ = 0;
@@ -179,11 +179,11 @@ void Controller::setGoal(Panda & robot){
                -1,0, 0, 0.575,
                0, 0, 0, 1;
 
-     Eigen::Affine3d desired_transform(Eigen::Matrix4d::Map(desired.data()));
+//     Eigen::Affine3d desired_transform(Eigen::Matrix4d::Map(desired.data()));
 
 
-    robot.setJoints(q_init_, Eigen::Vector7d::Zero());
-//    Eigen::Affine3d desired_transform = robot.fkEE();
+//    robot.setJoints(q_init_, Eigen::Vector7d::Zero());
+    Eigen::Affine3d desired_transform = robot.fkEE();
 
 
     position_d_ = desired_transform.translation();

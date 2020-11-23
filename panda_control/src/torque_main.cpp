@@ -26,14 +26,13 @@ int main(int argc, char **argv){
 
 void torqueThread(Controller& controller, Panda& robot){
     ros::Rate rate(100);
-
+//    controller.setGoal(robot);
     while (ros::ok()) {
         ros::spinOnce();
         rate.sleep();
 
         if (!controller.dataReady())
             continue;
-
         controller.jointPDControl(robot);
     }
 }
