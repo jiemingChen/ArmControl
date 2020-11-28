@@ -65,14 +65,26 @@ int main(int argc, char **argv){
 
 //    write_ee_data();
     write_solver_data();
-}
+ }
 #endif
 
 void planningThread(MotionPlanner& planner,  Panda& robot, Visual& visual){
     ros::Rate rate(100);
+
+    vector<array<double,3>> obs;
+//    obs ={{0.25, 0.15, 0.67}, {0.2, 0.15, 0.5}};
+//    obs ={{0.25, 0.162, 0.67}, {0.2, 0.15, 0.5}};  //!!
+    obs ={ {0.34, 0.19,0.47}, {0.30, 0.19, 0.47}, {0.26, 0.19, 0.47}, {0.22, 0.19, 0.47},{0.18, 0.19, 0.47}, {0.14, 0.19,0.47}, {0.10, 0.19, 0.47}, {0.06, 0.19, 0.47},  //};
+//           {0.34, 0.19,0.57}, {0.30, 0.19, 0.57}, {0.26, 0.19, 0.57}, {0.22, 0.19, 0.57},{0.18, 0.19, 0.57}, {0.14, 0.19,0.57}, {0.10, 0.19, 0.57}, {0.06, 0.19, 0.57}};
+           {0.34, 0.19,0.9}, {0.30, 0.19, 0.9}, {0.26, 0.19, 0.9}, {0.22, 0.19, 0.9},{0.18, 0.19, 0.9}, {0.14, 0.19,0.9}, {0.10, 0.19, 0.9}, {0.06, 0.19, 0.9}};
+
+
     planner.setGoal(robot);
-    planner.setObstacles();
+    planner.setObstacles(obs);
     planner.buildModel2();
+    visual.setObstacleInfo(obs);
+    visual.pubObs();
+
     while (ros::ok()) {
         ros::spinOnce();
         rate.sleep();
@@ -82,12 +94,12 @@ void planningThread(MotionPlanner& planner,  Panda& robot, Visual& visual){
             continue;
 
 //        auto cal_q= planner.followTrajectoryOptim(robot);
-        auto cal_q=  planner.generateJointTrajectory(robot);
 //        auto cal_q=  planner.generateTrajectory(robot);
-
-        planner.pubTrajectory(cal_q);
+        auto rst=  planner.generateJointTrajectory(robot);
+        if(rst.first){
+            planner.pubTrajectory(rst.second);
+        }
         visual.pubPath();
-        visual.pubObs();
 
     }
 
