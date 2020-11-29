@@ -175,17 +175,10 @@ void MotionPlanner::buildModel2() {
 
 #endif
 
-    // 2---- Qdot cost --------
-    for(uint k=0; k<N_; ++k){
+    // 2---- smooth cost --------
+    for(uint k=1; k<N_; ++k){
         for(uint i=0; i<7; i++)
-            f += pow(Qdot_(i, k), 2)*0.3;
-    }
-    // 4---- close to middle cost --------
-    vector<double> joint_weight = {0.2, 0.2, 2, 1, 1.4, 1, 0.8};
-    for(uint k=1; k<N_; ++k) {
-        for (uint i = 0; i < 7; i++) {
-            f += pow((Q_(i, k)-avg_limit_[i])/dq_max_limit[i], 2)*joint_weight[i]  ;
-        }
+            f += pow(Qdot_(i, k)-Qdot_(i, k-1), 2)*0.3;
     }
     // 3---- collision cost --------
      for(uint k=1; k<N_+1; ++k) {
@@ -193,7 +186,7 @@ void MotionPlanner::buildModel2() {
         for(auto& pairr: links){
             auto transform = pairr.first;
             auto link_radius = pairr.second;
-            double field_radius = link_radius + 0.12;  // object radius
+            double field_radius = link_radius + 0.05;  // object radius
             for(uint j=0; j<obs_.size(); j++){
                 auto dist = pow( pow(transform(0,3)-obs_[j][0], 2) + pow(transform(1,3)-obs_[j][1], 2) + pow(transform(2,3)-obs_[j][2], 2), 0.5 );
                 f += if_else( dist<=SXElem(field_radius), pow( (1/dist- 1/field_radius), 2)* 40000,  SXElem(0));
@@ -201,6 +194,13 @@ void MotionPlanner::buildModel2() {
             }
         }
      }
+    // 4---- close to middle cost --------
+    vector<double> joint_weight = {0.2, 0.2, 2, 1, 1.4, 1, 0.8};
+    for(uint k=1; k<N_; ++k) {
+        for (uint i = 0; i < 7; i++) {
+            f += pow((Q_(i, k)-avg_limit_[i])/dq_max_limit[i], 2)*joint_weight[i]  ;
+        }
+    }
 
     // ---- constraints function ---------
     SX g_orientation(1*(N_), 1);  SX g_q_kin(7*(N_), 1); SX g_inital(7,1);   SX g_obs(N_*5,1);
@@ -221,8 +221,7 @@ void MotionPlanner::buildModel2() {
         g_inital(i) = Q_(i, 0) - feedback_variable_(i);
     }
     // ---- obstacles constraints --------
-#if 1
-    vector<double> lower_bound_v, upper_bound_v;
+     vector<double> lower_bound_v, upper_bound_v;
     // k:steps  i:multi-links  j:obs
     for(uint k=1; k<N_+1; ++k) {
         auto links =  forwardKinematicMultiLinks( Q_(all, k) );
@@ -232,7 +231,7 @@ void MotionPlanner::buildModel2() {
             auto link_radius = pairr.second;
             double field_radius = link_radius + 0.05;  // object radius
 
-             for(uint j=0; j<1; j++){
+             for(uint j=0; j<obs_.size(); j++){
                 auto dist = pow(pow(transform(0,3)-obs_[j][0], 2) + pow(transform(1,3)-obs_[j][1], 2) + pow(transform(2,3)-obs_[j][2], 2), 0.5);
                 g_obs(i + (k-1)*5 )= dist;
                  lower_bound_v.push_back(field_radius);
@@ -240,8 +239,8 @@ void MotionPlanner::buildModel2() {
              }
         }
      }
-#endif
-        // ----bounds--------
+
+         // ----bounds--------
     vector<double> lbx_vec, ubx_vec;
     for(auto i=0; i<N_+1; i++){
         lbx_vec.insert(lbx_vec.end(), min_limit.begin(), min_limit.end());  // joint range
@@ -398,7 +397,7 @@ Eigen::Vector7d MotionPlanner::MPCSolv(const Eigen::Affine3d & goal_pose, const 
     return out;
 }
 
-pair<bool, Eigen::Vector7d> MotionPlanner::MPCSolv(const Eigen::Vector7d & current_q){
+pair<bool, vector<Eigen::Vector7d>> MotionPlanner::MPCSolv(const Eigen::Vector7d & current_q){
     // 1. initialize
     for(uint i=0; i<3; i++){
         for(uint j=0; j<3; j++){
@@ -463,9 +462,10 @@ pair<bool, Eigen::Vector7d> MotionPlanner::MPCSolv(const Eigen::Vector7d & curre
     // 3. return Q1
     vector<double> vector_x = static_cast<std::vector<double>>(res.at("x"));
     last_x_ = vector_x;
-    Eigen::Vector7d out;
-    for(auto i=0; i<7; i++)
-        out(i) = vector_x[i+7];
+    vector<Eigen::Vector7d> out(N_);
+    for(auto i=1; i<N_+1; i++)
+        for(auto j=0; j<7; j++)
+            out[i-1](j) = vector_x[j+i*7];
 
     return make_pair(feasible, out);
 }
@@ -572,31 +572,13 @@ Eigen::Vector7d MotionPlanner::generateTrajectory(Panda& robot){
      return q_desired;
 }
 
-pair<bool, Eigen::Vector7d> MotionPlanner::generateJointTrajectory(Panda& robot){
-
-    auto time_main = ros::Time::now().toSec();
-    double time_max = 30;
-
+pair<bool, vector<Eigen::Vector7d>> MotionPlanner::generateJointTrajectory(Panda& robot){
     auto res = MPCSolv(jointPos_);
-    auto q_desired = res.second;
-    if(time_main>=10 && time_main<=time_max+10){
-        robot.setJoints(jointPos_,Eigen::Vector7d::Zero());
-        auto cur_transform = robot.fkEE();
-        Eigen::Vector3d cur_position(cur_transform.translation());
 
-        ee_data.push_back({cur_position(0), cur_position(1), cur_position(2)}); // record data
-    }
-//    ee_desired_data.push_back({pose_goal[12], pose_goal[13], pose_goal[14]});
+    robot.setJoints(jointPos_,Eigen::Vector7d::Zero());
+    auto cur_transform = robot.fkEE();
+    ee_data.push_back({cur_transform.translation()(0), cur_transform.translation()(1), cur_transform.translation()(2)}); // record data
 
-#if 0
-    if(time_main>=10 && time_main<=time_max+10){
-        robot.setJoints(q_desired, Eigen::Vector7d::Zero());
-        Eigen::Affine3d desir_transform = robot.fkEE();
-        Eigen::Vector3d desir_position(desir_transform.translation());
-
-        ee_calculated_desired_data.push_back({desir_position(0), desir_position(1), desir_position(2)}); // record data
-    }
-#endif
     return res;
 }
 
