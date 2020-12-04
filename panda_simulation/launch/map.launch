@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+
+   <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+	    <!-- resolution in meters per pixel -->
+    	<!--param name="resolution" value="0.10" /-->
+	<param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/test.bt" /> 
+	<param name="frame_id" type="string" value="panda1/world" />  
+	<param name="base_frame_id" type="string" value="panda1/panda_link0" />   
+    </node>
+
+</launch>
+
+

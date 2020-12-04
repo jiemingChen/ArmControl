@@ -9,7 +9,7 @@
         <param name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm_world.urdf.xacro"/>
         <!--rosparam file="$(find panda_simulation)/config/panda_controltorque.yaml" command="load" ns="/robot1"/-->
 
-  	<node name="rviz" pkg="rviz"  type="rviz" />
+  	<!--node name="rviz" pkg="rviz"  type="rviz" /-->
 
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
 

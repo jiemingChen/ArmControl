@@ -1,0 +1,7 @@
+<launch>    
+    <include file="$(find panda_simulation)/launch/map.launch" >
+    </include>
+
+    <include file="$(find panda_simulation)/launch/torque_simulation.launch" >
+    </include>
+</launch>

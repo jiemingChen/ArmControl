@@ -12,21 +12,34 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   message_generation
+  cmake_modules
+  octomap_msgs
 )
 
 add_message_files(
    FILES
    TransformationError.msg
 )
+
+add_service_files(
+  FILES
+  Octomap.srv
+)
+
 generate_messages(
    DEPENDENCIES
    geometry_msgs
    std_msgs
+octomap_msgs
 )
 
 catkin_package(
-  CATKIN_DEPENDS geometry_msgs roscpp std_msgs message_runtime
+  CATKIN_DEPENDS  message_runtime
 )
+
+
+
+
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
