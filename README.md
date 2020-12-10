@@ -7,7 +7,8 @@ Optimization-based Inverse Kinematics and Impedance Control in Gazebo.
 
 Optimization-based Trajectory Generation and Collision Avoidance in Gazebo.  
 
-![detecion](gif/tg.gif)   ![detecion](gif/avoid.gif)  
+![detecion](gif/avoid.gif)  
 
-Collision Detection 
-![detecion](collision_detection.gif)  
+Collision Detection
+
+![detecion](gif/collision_detection.gif)  
