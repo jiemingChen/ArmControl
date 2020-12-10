@@ -1,0 +1,8 @@
+prefix=/home/jieming/catkin_ws/src/test/cmake-build-debug/devel
+
+Name: nihao
+Description: Description of nihao
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
