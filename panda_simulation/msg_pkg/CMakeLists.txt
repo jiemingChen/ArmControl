@@ -26,6 +26,12 @@ add_service_files(
   Octomap.srv
 )
 
+add_service_files(
+  FILES
+  Collisioncheck.srv
+)
+
+
 generate_messages(
    DEPENDENCIES
    geometry_msgs

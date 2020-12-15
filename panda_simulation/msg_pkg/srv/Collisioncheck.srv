@@ -1,0 +1,4 @@
+bool start
+float32[] joint_pos
+---
+bool collide
