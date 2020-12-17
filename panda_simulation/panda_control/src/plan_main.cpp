@@ -4,16 +4,162 @@
 #include "common.h"
 #include "Panda.h"
 #include "visualize.h"
+#include "param.hpp"
 
 #include "motion_planner.h"
-#include "RRTSTAR.h"
-//#include "collision_detection.h"
-
+#include "SEARCHER.h"
+//-----------------data record----------------
 vector<array<double, 3>> ee_data;
 vector<array<double, 3>> ee_desired_data;
 vector<array<double, 3>> ee_calculated_desired_data;
 vector<pair<DM, double>> solver_info;
+//-----------------config variable----------------
+std::array<double, 7> Initial_joints;
+Eigen::Vector3d Goal_position;
+std::array<double, 7> Goal_joints;
 
+
+void write_ee_data();
+void write_solver_data();
+void load_data(std::string);
+void initialze_modules(SEARCHER& searcher, MotionPlanner& planner, Panda& robot);
+
+void planningThread(MotionPlanner&, Panda&, Visual& );
+void planningThreadMap(MotionPlanner&, Panda&, Visual& );
+vector<array<double,7>> mapSearchThread(SEARCHER*);
+
+
+int main(int argc, char **argv){
+    ros::init(argc, argv, "planner_node");
+    ros::NodeHandle nh;
+
+    Panda robot;
+    SEARCHER searcher;
+    MotionPlanner planner(nh);
+    Visual visual(nh);
+
+    std::string filename = "/home/jieming/catkin_ws/src/panda_simulation/panda_control/config/input.cfg";
+
+    load_data(filename);
+    initialze_modules(searcher, planner, robot);
+    ros::Rate rate(4);
+    for(auto i=0; i<40; i++){
+        auto waypoints = mapSearchThread(&searcher);
+        visual.pubWaypoints(waypoints, robot);
+        rate.sleep();
+    }
+
+
+//    planningThreadMap(planner, robot, visual);
+
+ }
+
+vector<array<double,7>> mapSearchThread(SEARCHER* searcher_ptr){
+    vector<array<double,7>>waypoints;
+
+    optional< vector<array<double,7>>>  waypoints_opt = searcher_ptr->plan();
+    if(waypoints_opt.has_value()){
+      waypoints = waypoints_opt.value();
+    }
+    return waypoints;
+}
+
+
+void planningThreadMap(MotionPlanner& planner,  Panda& robot, Visual& visual){
+    ros::Rate rate(100);
+
+    vector<array<double,3>> obs;
+
+    planner.setObstacles(obs);
+
+    while (ros::ok()) {
+        ros::spinOnce();
+        rate.sleep();
+
+//        auto rst=  planner.generateJointTrajectory(robot);
+//        if(rst.first){
+//            planner.pubTrajectory(rst.second[0]);
+//            visual.pubPredictPath(rst.second, robot);
+//        }
+//        visual.pubPath();
+    }
+}
+
+void planningThread(MotionPlanner& planner,  Panda& robot, Visual& visual){
+    ros::Rate rate(100);
+
+    vector<array<double,3>> obs;
+ //    obs ={{0.25, 0.162, 0.67}, {0.2, 0.15, 0.5}};  //!!
+ // two wall--- high&low
+    obs ={
+            {0.34, 0.19,0.47}, {0.30, 0.19, 0.47}, {0.26, 0.19, 0.47}, {0.22, 0.19, 0.47},{0.18, 0.19, 0.47}, {0.14, 0.19,0.47}, {0.10, 0.19, 0.47}, {0.06, 0.19, 0.47},
+//            {0.34, 0.19,0.87}, {0.30, 0.19, 0.87}, {0.26, 0.19, 0.87}, {0.22, 0.19, 0.87},{0.18, 0.19, 0.87}, {0.14, 0.19,0.87}, {0.10, 0.19, 0.87}, {0.06, 0.19, 0.87}
+    };
+    // one wall
+    obs ={
+            {0.38, 0.19,0.47},  {0.34, 0.19,0.47}, {0.30, 0.19, 0.47}, {0.26, 0.19, 0.47}, {0.22, 0.19, 0.47},{0.18, 0.19, 0.47}, {0.14, 0.19,0.47}, {0.10, 0.19, 0.47}, {0.06, 0.19, 0.47},
+            {0.38, 0.19,0.55}, {0.34, 0.19,0.55}, {0.30, 0.19, 0.55}, {0.26, 0.19, 0.55}, {0.22, 0.19, 0.55},{0.18, 0.19, 0.55}, {0.14, 0.19,0.55}, {0.10, 0.19, 0.55}, {0.06, 0.19, 0.55},
+     };
+
+    planner.setGoal(robot, Goal_joints);
+    planner.setObstacles(obs);
+    planner.buildModel2();
+    visual.setObstacleInfo(obs);
+    visual.pubObs();
+
+    while (ros::ok()) {
+        ros::spinOnce();
+        rate.sleep();
+        if(!planner.receiveFeedback())
+            continue;
+        if(ros::Time::now().toSec()<=10 )
+            continue;
+
+        auto rst=  planner.generateJointTrajectory(robot);
+        if(rst.first){
+            planner.pubTrajectory(rst.second[0]);
+            visual.pubPredictPath(rst.second, robot);
+        }
+        visual.pubPath();
+    }
+}
+
+void initialze_modules(SEARCHER& searcher, MotionPlanner& planner, Panda& robot){
+    ros::Rate rate(10);
+    while (ros::ok()) {
+        ros::spinOnce();
+        rate.sleep();
+        if(ros::Time::now().toSec()<=10 )
+            continue;
+        if (planner.receiveFeedback()){
+            Initial_joints = planner.getJoints();
+            break;
+        }
+    }
+    searcher.setGoal(Goal_joints);
+    searcher.setStart(Initial_joints);
+
+    planner.setGoal(robot, Goal_joints);
+    planner.buildModel2(); //TODO varying num of obstacles
+
+}
+
+
+void load_data(string filename){
+    Initial_joints = { 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785};  // home joints
+    Goal_joints = {1.27, 0.48, 0.28, -1.37, 0.04, 1.91, 0.39};
+//    Goal_joints = {-0.46, -0.36, 2.88, -0.85, -2.63, 0.55, 0.95};
+
+    Goal_position << 0, 1, 1;
+#if 0
+    param::parameter param(filename);
+    if (!param) {
+        std::cerr << "Could not find file " << filename << std::endl;
+        std::abort();
+    }
+    param.get<bool>("bool");
+#endif
+}
 
 void write_ee_data(){
     std::cout << "writing ee into file..." << std::endl;
@@ -53,86 +199,3 @@ void write_solver_data(){
     }
 }
 
-void planningThread(MotionPlanner&, Panda&, Visual& );
-void mapSearchThread(Searcher*);
-
-#if 1
-int main(int argc, char **argv){
-    ros::init(argc, argv, "planner_node");
-    ros::NodeHandle nh;
-    Panda robot;
-    Visual visual(nh);
-
-    MotionPlanner planner(nh);
-    Searcher rrt;
-
-    mapSearchThread(&rrt);
-    planningThread(planner, robot, visual);
-
-//    write_ee_data();
-    write_solver_data();
- }
-#endif
-#if 1
-void mapSearchThread(Searcher* planner_ptr){
-
-    const std::string filename = "/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/test.bt";
-    octomap::OcTree temp_tree(0.05);
-    temp_tree.readBinary(filename);
-    fcl::OcTreed* tree = new fcl::OcTreed(std::shared_ptr<const octomap::OcTree>(&temp_tree));
-
-    planner_ptr->setStart(0,-1, 0.5);
-    planner_ptr->setGoal(0, 3, 0.3);
-    planner_ptr->updateMap(std::shared_ptr<fcl::CollisionGeometryd>(tree));
-    planner_ptr->plan();
-}
-#endif
-
-void planningThread(MotionPlanner& planner,  Panda& robot, Visual& visual){
-    ros::Rate rate(100);
-
-    vector<array<double,3>> obs;
- //    obs ={{0.25, 0.162, 0.67}, {0.2, 0.15, 0.5}};  //!!
- // two wall--- high&low
-    obs ={
-            {0.34, 0.19,0.47}, {0.30, 0.19, 0.47}, {0.26, 0.19, 0.47}, {0.22, 0.19, 0.47},{0.18, 0.19, 0.47}, {0.14, 0.19,0.47}, {0.10, 0.19, 0.47}, {0.06, 0.19, 0.47},
-//            {0.34, 0.19,0.87}, {0.30, 0.19, 0.87}, {0.26, 0.19, 0.87}, {0.22, 0.19, 0.87},{0.18, 0.19, 0.87}, {0.14, 0.19,0.87}, {0.10, 0.19, 0.87}, {0.06, 0.19, 0.87}
-    };
-    // one wall
-    obs ={
-            {0.38, 0.19,0.47},  {0.34, 0.19,0.47}, {0.30, 0.19, 0.47}, {0.26, 0.19, 0.47}, {0.22, 0.19, 0.47},{0.18, 0.19, 0.47}, {0.14, 0.19,0.47}, {0.10, 0.19, 0.47}, {0.06, 0.19, 0.47},
-            {0.38, 0.19,0.55}, {0.34, 0.19,0.55}, {0.30, 0.19, 0.55}, {0.26, 0.19, 0.55}, {0.22, 0.19, 0.55},{0.18, 0.19, 0.55}, {0.14, 0.19,0.55}, {0.10, 0.19, 0.55}, {0.06, 0.19, 0.55},
-     };
-
-//    planner.setGoal(robot);
-//    planner.setObstacles(obs);
-//    planner.buildModel2();
-//    visual.setObstacleInfo(obs);
-//    visual.pubObs();
-
-    while (ros::ok()) {
-        ros::spinOnce();
-        rate.sleep();
-        if(!planner.receiveFeedback())
-            continue;
-        if(ros::Time::now().toSec()<=10 )
-            continue;
-
-//        auto cal_q= planner.followTrajectoryOptim(robot);
-//        auto cal_q=  planner.generateTrajectory(robot);
-//        auto rst=  planner.generateJointTrajectory(robot);
-//        if(rst.first){
-//            planner.pubTrajectory(rst.second[0]);
-//            visual.pubPredictPath(rst.second, robot);
-//        }
-//        visual.pubPath();
-    }
-
-}
-
-#if 0
-int main(){
-    vector<fcl::Vec3f> points; vector<fcl::Triangle> triangles;
-    ReadMesh::loadModel( "/home/jieming/catkin_ws/src/panda_simulation/franka_description/meshes/collision/link0.stl", points,  triangles);
-}
-#endif

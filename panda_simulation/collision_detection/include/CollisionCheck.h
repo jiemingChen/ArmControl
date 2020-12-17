@@ -53,6 +53,7 @@ class CollisionCheck {
     };
 
 public:
+
     CollisionCheck();
     ~CollisionCheck();
 
@@ -76,6 +77,12 @@ public:
     void getCollisionsInRange(const double& range);
 
     void test_distance_spheresphere();
+
+    // ******************** collision check server ********************
+
+    bool callJointStateCB = true;
+
+    bool checkCollision(const std::vector<Real> &jointPositions1);
 
 
 private:

@@ -311,10 +311,24 @@ void CollisionCheck::test_distance_spheresphere()
     cout << result.min_distance << endl;
 }
 
+// ******************** collision check server ********************
+bool CollisionCheck::checkCollision(const std::vector<Real> &jointPositions1){
+    for (std::vector<Link>::iterator it = links.begin(); it != links.end(); ++it)
+        it->isInCollision = false;
+
+    updateTransforms(jointPositions1);
+    bool collide1 = checkMapCollision();
+    bool collide2 = checkSelfCollision();
+//    return collide1 || collide2;
+    return collide2;
+}
+
 
 
 //private
 void CollisionCheck::jointStatesCallback(const sensor_msgs::JointState::ConstPtr &msg){
+    if(!callJointStateCB) 
+	return;
     if(isFirstReceive){
         isFirstReceive = false;
         cout << "first receive joint states"  << endl;

@@ -29,7 +29,7 @@ MotionPlanner::MotionPlanner(ros::NodeHandle& nh){
 
     first_solve_ = true; first_receive_=false;
 
-    obs_.reserve(10);
+    obs_.reserve(20);
 //    buildModel();
 //    buildIKModel();
 //    buildModel2();
@@ -585,15 +585,19 @@ pair<bool, vector<Eigen::Vector7d>> MotionPlanner::generateJointTrajectory(Panda
 }
 
 
-void MotionPlanner::setGoal(Panda& robot){
+Eigen::Vector3d MotionPlanner::setGoal(Panda& robot, std::array<double, 7>& goal){
  //    std::array<double, 7> joint_goal = {1.92, -0.78, 0, -2.35, 0, 1.57, 0.79};
-    std::array<double, 7> joint_goal = {1.34, 0.48, 0.09, -1.51, 0.09, 1.99, 0.95};
+//    std::array<double, 7> joint_goal = {1.34, 0.48, 0.09, -1.51, 0.09, 1.99, 0.95};  //test.bt
 
+    std::array<double, 7> joint_goal = goal;
     goal_joint_ = Eigen::Vector7d::Map(joint_goal.data());
-     robot.setJoints(goal_joint_, Eigen::Vector7d::Zero());
+
+    robot.setJoints(goal_joint_, Eigen::Vector7d::Zero());
     auto goal_transform =  robot.fkEE();
+
     ori_desired_ = goal_transform.linear();
     goal_position_ = goal_transform.translation();
+    return goal_position_;
 }
 
 

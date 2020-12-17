@@ -16,6 +16,8 @@ find_package(catkin REQUIRED COMPONENTS
   octomap_msgs
   octomap_ros
 msg_pkg
+    control_toolbox
+    gazebo_ros
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})
@@ -39,10 +41,19 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GAZEBO_CXX_FLAGS}")
 add_library(BuildOctomapPlugin SHARED src/plugin_build_octomap.cpp)
 target_link_libraries(BuildOctomapPlugin ${catkin_LIBRARIES} )
  
+add_library(gazebo_mimic_joint_plugin src/mimic_joint_plugin.cpp)
+target_link_libraries(gazebo_mimic_joint_plugin ${catkin_LIBRARIES} )
 
-#############
+ 
+############# set_target_properties(BuildOctomapPlugin PROPERTIES
+###    LIBRARY_OUTPUT_DIRECTORY ${CATKIN_PACKAGE_LIB_DESTINATION})
 ## Install ##
 #############
+
 set_target_properties(BuildOctomapPlugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY /home/jieming/catkin_ws/devel/lib)
+    LIBRARY_OUTPUT_DIRECTORY "${CATKIN_PACKAGE_LIB_DESTINATION}")
+
+set_target_properties(gazebo_mimic_joint_plugin PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CATKIN_PACKAGE_LIB_DESTINATION}")
+ 
  

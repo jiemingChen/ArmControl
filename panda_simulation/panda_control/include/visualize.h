@@ -14,9 +14,9 @@ extern vector<array<double, 3>> ee_data;
 
 class Visual {
 private:
-    ros::Publisher path_pub_, obs_pub_, pred_pub_;
+    ros::Publisher path_pub_, obs_pub_, pred_pub_, waypoint_pub_;
     ros::NodeHandle nh_;
-    nav_msgs::Path path_, actual_path_;
+    nav_msgs::Path path_, actual_path_, waypoint_path;
 
     vector<array<double,3>> obs_;
 public:
@@ -25,10 +25,12 @@ public:
         obs_pub_ = nh_.advertise<visualization_msgs::Marker>( "obs_marker",  20 );
         pred_pub_ = nh_.advertise<nav_msgs::Path>("pred_trajectory",100);
         path_pub_ = nh_.advertise<nav_msgs::Path>("actual_trajectory",100);
+        waypoint_pub_ = nh_.advertise<nav_msgs::Path>("waypoint_trajectory",100);
+
 
         path_.header.frame_id="panda1/world";
         actual_path_.header.frame_id="panda1/world";
-
+        waypoint_path.header.frame_id="panda1/world";
     }
     ~Visual(){
         path_.poses.clear();
@@ -113,6 +115,30 @@ public:
                 rate.sleep();
             }
         }
+    }
+
+    void pubWaypoints(vector<array<double,7>>& points, Panda& robot){
+        Eigen::Affine3d waypoint_transform;
+        Eigen::Vector3d waypoint_position;
+        Eigen::Vector7d joints_pos;
+        geometry_msgs::PoseStamped this_pose_stamped;
+
+        for(size_t i=0; i<points.size(); i++){
+            joints_pos = Eigen::Map<Eigen::Vector7d>(points[i].data());
+            robot.setJoints(joints_pos, Eigen::Vector7d::Zero());
+            waypoint_transform = robot.fkEE();
+            waypoint_position = waypoint_transform.translation();
+
+            this_pose_stamped.pose.position.x = waypoint_position(0);
+            this_pose_stamped.pose.position.y = waypoint_position(1);
+            this_pose_stamped.pose.position.z = waypoint_position(2);
+
+            waypoint_path.poses.push_back(this_pose_stamped);
+        }
+        waypoint_path.header.stamp=ros::Time().now();
+
+        waypoint_pub_.publish(waypoint_path);
+        waypoint_path.poses.clear();
     }
 
 };

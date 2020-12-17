@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
-
+    <param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05small.bt" /> 
   <!-- This argument sets the initial joint states -->
   <arg name="initial_joint_states"
     default=" -J panda_joint1 0.000
@@ -69,6 +69,7 @@
           -J panda_joint5  -1.78129
           -J panda_joint6  2.22934
           -J panda_joint7 -0.366547
+
    "/>
 
         <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="

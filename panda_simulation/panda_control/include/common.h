@@ -10,6 +10,9 @@
 #include "ros/ros.h"
 #include <vector>
 #include <cmath>
+#include <optional>
+
+
 #include <sensor_msgs/JointState.h>
 #include "std_msgs/Float64.h"
 #include "std_msgs/Float64MultiArray.h"

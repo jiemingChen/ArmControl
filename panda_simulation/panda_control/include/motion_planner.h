@@ -89,9 +89,17 @@ public :
         return first_receive_ == true;
     }
 
-    void setGoal(Panda&);
+    Eigen::Vector3d setGoal(Panda&, std::array<double, 7>&);
     void setObstacles(const vector<array<double,3>>&);
     void pubTrajectory(const Eigen::Vector7d &);
+
+    std::array<double,7> getJoints(){
+        std::array<double,7> rst;
+        for(size_t i=0; i<7; i++){
+            rst[i] = jointPos_(i);
+        }
+        return rst;
+    }
 
 };
 

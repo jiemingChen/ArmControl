@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(panda_control)
 
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++17)
 set(CMAKE_MODULE_PATH   "${CMAKE_CURRENT_SOURCE_DIR}/cmake" )
 
 ## Find catkin macros and libraries
@@ -22,13 +22,15 @@ find_package(catkin REQUIRED COMPONENTS
 	octomap_msgs
 	octomap_ros
 
+  octomap_server
+ geometric_shapes
 		)
+
 find_package(orocos_kdl REQUIRED)
 find_package(octomap REQUIRED)
 find_package(fcl REQUIRED )
-find_package(OMPL REQUIRED)
-## find_package(libigl REQUIRED )
-find_package(Eigen3 REQUIRED)
+find_package(OMPL   REQUIRED)
+ find_package(Eigen3 REQUIRED)
 find_package(CCD REQUIRED)
 
 ###################################
@@ -54,8 +56,6 @@ include_directories(
 		${fcl_INCLUDE_DIRS}
 )
 
-#include_directories("/home/jieming/libs/libigl/include")
-#link_directories("/home/jieming/libs/libigl/build")
 
 
 ## Declare a C++ executable
@@ -63,8 +63,12 @@ include_directories(
 
 add_executable(${PROJECT_NAME}_PLAN
 		src/plan_main.cpp   src/Panda.cpp
-		src/motion_planner.cpp  
+		src/motion_planner.cpp
+		src/SEARCHER.cpp
+		src/collision_detect/CollisionCheck.cpp
+		src/collision_detect/fcl_utility.cpp
 		include/visualize.h
+		include/param.hpp
 		)
 
 add_dependencies(${PROJECT_NAME}_PLAN ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -79,9 +83,7 @@ target_link_libraries(${PROJECT_NAME}_PLAN
 		${fcl_INCLUDE_DIRS}
 		${OMPL_LIBRARIES}
 		        ${CCD_LIBRARIES}
-		## libigl
-		)
-
+ 		)
 
 
 

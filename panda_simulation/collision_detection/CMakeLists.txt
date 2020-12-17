@@ -14,9 +14,10 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
         geometric_shapes
         trajectory_msgs
+  msg_pkg
 )
 find_package(CCD REQUIRED)
-find_package(fcl REQUIRED)
+find_package(fcl 0.6 REQUIRED)
 #include_directories(${CCD_INCLUDE_DIRS})
 
 
@@ -36,6 +37,22 @@ catkin_package(
          ${fcl_INCLUDE_DIRS}
 )
 
+
+
+
+add_executable(collision_srv_node
+        src/main_srv.cpp
+        src/CollisionCheck.cpp
+        src/fcl_utility.cpp
+)
+
+target_link_libraries(collision_srv_node
+   ${catkin_LIBRARIES}
+   ${OCTOMAP_LIBRARIES}
+   ${orocos_kdl_LIBRARIES}
+    fcl
+    ${CCD_LIBRARIES}
+)
 
 
 add_executable(${PROJECT_NAME}_node

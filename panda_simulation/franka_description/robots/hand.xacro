@@ -26,8 +26,7 @@
         <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
       </inertial>
     </link>
-
-<!--
+<!-- 
     <link name="${ns}_leftfinger">
       <visual>
         <geometry>
@@ -41,10 +40,11 @@
       </collision>
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
-        <mass value="0.1"/>
+        <mass value="0.0001"/>
         <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
       </inertial>
     </link>
+
     <link name="${ns}_rightfinger">
       <visual>
         <origin xyz="0 0 0" rpy="0 0 ${pi}"/>
@@ -60,10 +60,11 @@
       </collision>
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
-        <mass value="0."/>
+        <mass value="0.0001"/>
         <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
       </inertial>
     </link>
+
     <joint name="${ns}_finger_joint1" type="prismatic">
       <parent link="${ns}_hand"/>
       <child link="${ns}_leftfinger"/>
@@ -79,7 +80,7 @@
       <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
       <mimicjoint="${ns}_finger_joint1" />
     </joint>
- -->
+-->
     <link name="virtual_link">
       <inertial>
         <origin xyz="0 0 0" rpy="0 0 0"/>
