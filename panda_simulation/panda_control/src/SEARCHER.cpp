@@ -28,7 +28,15 @@ bool SEARCHER::isStateValid(const ob::State *state){
 #endif
 ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr& si);
 
+ob::OptimizationObjectivePtr getPathLengthObjWithCostToGo(const ob::SpaceInformationPtr& si)
+{
+    ob::OptimizationObjectivePtr obj(new ob::PathLengthOptimizationObjective(si));
+    obj->setCostToGoHeuristic(&ob::goalRegionCostToGo);
+    return obj;
+}
+
 bool SEARCHER::isStateValid(const ob::State *state){
+//    return true;
     vector<double> joint_pos(7);
 
     for(size_t j=0; j<7; j++){
@@ -76,6 +84,8 @@ SEARCHER::SEARCHER(){
     pdef_ = ob::ProblemDefinitionPtr(new ob::ProblemDefinition(si_));
     // set the start and goal states
     pdef_->setStartAndGoalStates(start, goal);
+//    pdef_->setOptimizationObjective(getPathLengthObjWithCostToGo(si_));
+    pdef_->setOptimizationObjective(getPathLengthObjective(si_));
 
     std::cout << "initialized " << std::endl;
 }
@@ -131,19 +141,21 @@ void SEARCHER::replan(){
 }
 
 std::optional< vector<array<double,7>>> SEARCHER::plan(){
-//    pdef_->setOptimizationObjective(getPathLengthObjective(si_));
-    //    auto optimizingPlanner(std::make_shared<og::InformedRRTstar>(si_));
+//    auto optimizingPlanner(std::make_shared<og::InformedRRTstar>(si_));
+//    auto optimizingPlanner(std::make_shared<og::RRTstar>(si_));
+//
 //    optimizingPlanner->setTreePruning(true);
+//    optimizingPlanner->setRange(0.05);
+//    optimizingPlanner->setGoalBias(0.05);
+//    optimizingPlanner->setDelayCC(1);
 
-//    auto optimizingPlanner(std::make_shared<og::RRT>(si_));  //no good
-//    auto optimizingPlanner(std::make_shared<og::PRM>(si_));  //no good
+ //    auto optimizingPlanner(std::make_shared<og::PRM>(si_));  //no good
 //    auto optimizingPlanner(std::make_shared<og::RRTConnect>(si_));  //no good
-    auto optimizingPlanner(std::make_shared<og::BiTRRT>(si_)); // last time use
-//    auto optimizingPlanner(std::make_shared<og::PDST>(si_));  //no good
-//        auto optimizingPlanner(std::make_shared<og::RRTstar>(si_)); // l
+//    auto optimizingPlanner(std::make_shared<og::BiTRRT>(si_)); // last time use
+    auto optimizingPlanner(std::make_shared<og::RRTConnect>(si_));  //no good
+    optimizingPlanner->setRange(0.05);
 
-
-     // Set the problem instance for our planner to solve
+    // Set the problem instance for our planner to solve
     optimizingPlanner->setProblemDefinition(pdef_);
     optimizingPlanner->setup();
 
@@ -155,7 +167,7 @@ std::optional< vector<array<double,7>>> SEARCHER::plan(){
     pdef_->print(std::cout);
 
     // attempt to solve the problem within one second of planning time
-    ob::PlannerStatus solved = optimizingPlanner->ob::Planner::solve(1.0);
+    ob::PlannerStatus solved = optimizingPlanner->ob::Planner::solve(5.0);
     if (solved){
 
         std::cout << "Found solution:" << std::endl;
@@ -165,19 +177,18 @@ std::optional< vector<array<double,7>>> SEARCHER::plan(){
         //pth->printAsMatrix(std::cout);
         //print the path to screen
         //path->print(std::cout);
-        cout << "---------------------------------00000000000000000"<< endl;
-        og::PathSimplifier* pathBSpline = new og::PathSimplifier(si_);
+         og::PathSimplifier* pathBSpline = new og::PathSimplifier(si_);
         path_smooth_ = new og::PathGeometric(dynamic_cast<const og::PathGeometric&>(*pdef_->getSolutionPath()));
-        pathBSpline->smoothBSpline(*path_smooth_,3);
+        pathBSpline->smoothBSpline(*path_smooth_,5);
 //        getStatesShow(path_smooth_);
 
-//        vector<array<double,7>> joints_arr =  getStates(pth);
         vector<array<double,7>> joints_arr =  getStates(path_smooth_);
+//        vector<array<double,7>> joints_arr =  getStates(path_smooth_);
 
         // Clear memory
         pdef_->clearSolutionPaths();
         replan_flag_ = false;
-        cout << "---------------------------------111111111111"<< endl;
+
         delete path_smooth_;
         return joints_arr;
     }

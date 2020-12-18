@@ -319,8 +319,8 @@ bool CollisionCheck::checkCollision(const std::vector<Real> &jointPositions1){
     updateTransforms(jointPositions1);
     bool collide1 = checkMapCollision();
     bool collide2 = checkSelfCollision();
-//    return collide1 || collide2;
-    return collide1;
+    return collide1 || collide2;
+//    return collide1;
 }
 
 

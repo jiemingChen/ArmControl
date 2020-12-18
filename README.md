@@ -13,7 +13,7 @@ Collision Detection
 ![detecion](gif/collision_detection.gif)  
 ![detecion](gif/distance_calc.gif)  
 
-Sampling-based method in 7 Dimensions by OMPL
+Sampling-based method in joint space by OMPL
 
 ![detecion](gif/ompl.gif)  
 
