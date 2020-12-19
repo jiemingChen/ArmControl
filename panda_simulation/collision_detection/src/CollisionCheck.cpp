@@ -23,9 +23,9 @@ CollisionCheck::CollisionCheck() : initialized(false), octomapCollisionObject(nu
 
     publisherCollisionModell = nh.advertise<visualization_msgs::MarkerArray>("collision_modell", 3);
     publisherNearObs = nh.advertise<visualization_msgs::MarkerArray>("near_obs", 2);
-
+    publisherNearBoxes = nh.advertise<std_msgs::Float32MultiArray>("near_boxes", 2);
     sensorSub = nh.subscribe("/robot1/joint_states", 1, &CollisionCheck::jointStatesCallback, this);
-    traj_pub_ = nh.advertise<trajectory_msgs::MultiDOFJointTrajectory>("waypoints",1);
+//    traj_pub_ = nh.advertise<trajectory_msgs::MultiDOFJointTrajectory>("waypoints",1);
     cout << "construction function finished jm" << endl;
     manager1.reset(new fcl::DynamicAABBTreeCollisionManagerd());
     manager1->clear();
@@ -172,6 +172,33 @@ void CollisionCheck::publishInRange(const std::vector<Eigen::Vector3d>& near_poi
     last_id = cur_id;
 }
 
+void CollisionCheck::publishBoxes(const std::vector<Eigen::Vector3d>& near_points, std::vector<double>& sizes){
+    if (publisherNearBoxes.getNumSubscribers() == 0)
+        return;
+
+    std_msgs::Float32MultiArray msg;
+    msg.data.reserve(2000);
+
+    if(map_boxes.empty()){
+       //publish zero sizes
+       msg.data.push_back(0);
+    }
+    else{
+        msg.data.push_back(near_points.size());
+
+        for (std::size_t i=0; i<near_points.size(); ++i){
+            const auto near_point = near_points[i];
+            msg.data.push_back(near_point(0));
+            msg.data.push_back(near_point(1));
+            msg.data.push_back(near_point(2));
+            msg.data.push_back(sizes[i]);
+        }
+    }
+    msg.data.shrink_to_fit();
+    publisherNearBoxes.publish(msg);
+}
+
+
 bool CollisionCheck::isFirstReceiv(){
     return isFirstReceive;
 }
@@ -279,7 +306,8 @@ void CollisionCheck::getCollisionsInRange(const double& range) {
     }
     near_points.shrink_to_fit();
     sizes.shrink_to_fit();
-    publishInRange(near_points, sizes);
+    //publishInRange(near_points, sizes);
+    publishBoxes(near_points, sizes);
 
 }
 

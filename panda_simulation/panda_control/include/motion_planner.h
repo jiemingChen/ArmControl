@@ -13,7 +13,7 @@ using namespace casadi;
 class MotionPlanner {
 private:
     ros::NodeHandle nh_;
-    ros::Subscriber sensorSub_;
+    ros::Subscriber sensorSub_, obsSub_;
     ros::Publisher trajPub_;
     Eigen::Matrix<double, 7, 1> jointPos_;
 
@@ -32,6 +32,10 @@ private:
     SX feedback_variable_;
     SX joint_position_desired_;
 
+    SX f_;
+    SX g_orientation_;  SX g_q_kin_; SX g_inital_; SX g_obs_;
+    SXDict nlp_;
+
 
     bool first_solve_;
     bool first_receive_;
@@ -46,7 +50,7 @@ private:
     Eigen::Matrix3d ori_desired_;
     Eigen::Vector3d goal_position_;
 
-    vector<array<double, 3>> obs_;
+    vector<array<double, 4>> obs_;
 
 public :
     MotionPlanner(ros::NodeHandle &);
@@ -54,6 +58,8 @@ public :
     void buildIKModel();
     void buildModel();
     void buildModel2();
+    void buildMPC();
+    void addObstaclesToMPC();
 
 
     Eigen::Vector7d iKSolv(const Eigen::Affine3d &, const Eigen::Vector7d &);
@@ -85,12 +91,13 @@ public :
         for (int i = 0; i < 7; i++)
             jointPos_(i) = msg->position[i];
     }
+    void nearObsCallback(const std_msgs::Float32MultiArray::ConstPtr& msg);
     bool receiveFeedback() {
         return first_receive_ == true;
     }
 
     Eigen::Vector3d setGoal(Panda&, std::array<double, 7>&);
-    void setObstacles(const vector<array<double,3>>&);
+    void setObstacles(const vector<array<double,4>>&);
     void pubTrajectory(const Eigen::Vector7d &);
 
     std::array<double,7> getJoints(){

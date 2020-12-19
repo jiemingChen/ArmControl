@@ -22,6 +22,7 @@
 
 #include <ros/ros.h>
 #include <ros/package.h>
+#include <std_msgs/Float32MultiArray.h>
 #include <trajectory_msgs/MultiDOFJointTrajectory.h>
 #include <sensor_msgs/JointState.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -59,6 +60,8 @@ public:
 
     void publishCollisionModell();
     void publishInRange(const std::vector<Eigen::Vector3d>& near_points, std::vector<double>& sizes);
+    void publishBoxes(const std::vector<Eigen::Vector3d>& near_points, std::vector<double>& sizes);
+
     void showBoxes();
 
     bool isFirstReceiv();
@@ -121,6 +124,7 @@ private:
     bool initialized;
     ros::NodeHandle nh;
     ros::Publisher publisherCollisionModell, traj_pub_, publisherNearObs;
+    ros::Publisher publisherNearBoxes;
     ros::Subscriber sensorSub;
     KDL::Tree kdlTree;
     std::vector<Real> jointPositions;

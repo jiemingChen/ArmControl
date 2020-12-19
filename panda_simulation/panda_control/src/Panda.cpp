@@ -87,8 +87,15 @@ Eigen::Vector7d Panda::iK(Eigen::Affine3d cart_pos){
     tf::transformEigenToKDL(cart_pos, cartpos);
     KDL::JntArray q_res;
     int rc= ik_slover_->CartToJnt(q_, cartpos, q_res);
-    if(rc < 0)
-        printf("%s \n","Error: could not calculate inverse kinematics :(");
+    if(rc < 0){
+//        printf("%s \n","Error: could not calculate inverse kinematics :(");
+//            cout << q_.data << "  " <<endl;
+//
+//        Eigen::Vector7d wrong;
+//        wrong << -100, -100, -100, -100, -100, -100, -100;
+//        return wrong;
+        ROS_ERROR("could not calculate inverse kinematics");
+    }
 
     Eigen::Vector7d res;
     for(auto i=0; i<7; i++)

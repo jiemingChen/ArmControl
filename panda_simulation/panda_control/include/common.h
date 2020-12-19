@@ -16,6 +16,7 @@
 #include <sensor_msgs/JointState.h>
 #include "std_msgs/Float64.h"
 #include "std_msgs/Float64MultiArray.h"
+#include "std_msgs/Float32MultiArray.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 #include "trajectory_msgs/JointTrajectory.h"

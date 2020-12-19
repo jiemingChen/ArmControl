@@ -141,6 +141,23 @@ public:
         waypoint_path.poses.clear();
     }
 
+    void pubWaypoints(vector<array<double,3>>& points, Panda& robot){
+
+         geometry_msgs::PoseStamped this_pose_stamped;
+
+        for(size_t i=0; i<points.size(); i++){
+            this_pose_stamped.pose.position.x = points[i][0];
+            this_pose_stamped.pose.position.y = points[i][1];
+            this_pose_stamped.pose.position.z = points[i][2];
+
+            waypoint_path.poses.push_back(this_pose_stamped);
+        }
+        waypoint_path.header.stamp=ros::Time().now();
+
+        waypoint_pub_.publish(waypoint_path);
+        waypoint_path.poses.clear();
+    }
+
 };
 
 #endif //PANDA_CONTROL_VISUALIZE_H
