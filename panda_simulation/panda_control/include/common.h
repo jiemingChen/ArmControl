@@ -20,6 +20,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 #include "trajectory_msgs/JointTrajectory.h"
+#include <visualization_msgs/Marker.h>
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>

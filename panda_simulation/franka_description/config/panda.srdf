@@ -68,4 +68,5 @@
     <disable_collisions link1="octomap"     link2="virtual_link" reason="default" />
     <disable_collisions link1="octomap"     link2="panda_link8" reason="default" />
     <disable_collisions link1="octomap"     link2="panda_link0" reason="default" />
+    <disable_collisions link1="octomap"     link2="panda_link1" reason="default" />
 </robot>

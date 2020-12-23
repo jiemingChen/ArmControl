@@ -26,9 +26,9 @@ int main(int argc, char **argv){
             cout << "wait for initial" << endl;
             continue;
         }
-
-        checker.getCollisions();
-        checker.getCollisionsInRange(0.2);
+        checker.showBoxes();
+//        checker.getCollisions();
+//        checker.getCollisionsInRange(0.2);
       }
 
 }

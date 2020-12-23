@@ -40,13 +40,12 @@ catkin_package(
 
 
 
-add_executable(collision_srv_node
-        src/main_srv.cpp
+add_executable(collision_distance_node
+        src/main_distance.cpp
         src/CollisionCheck.cpp
         src/fcl_utility.cpp
 )
-
-target_link_libraries(collision_srv_node
+target_link_libraries(collision_distance_node
    ${catkin_LIBRARIES}
    ${OCTOMAP_LIBRARIES}
    ${orocos_kdl_LIBRARIES}

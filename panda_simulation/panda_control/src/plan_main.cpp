@@ -25,7 +25,7 @@ void load_data(std::string);
 void initialze_modules(SEARCHER& searcher, MotionPlanner& planner, Panda& robot);
 
 void planningThread(MotionPlanner&, Panda&, Visual& );
-void planningThreadMap(MotionPlanner&, Panda&, Visual&, const vector<array<double,7>>& );
+void planningThreadMap(MotionPlanner&, Panda&, Visual&,    vector<array<double,7>>& );
 vector<array<double,7>> mapSearchThread(SEARCHER*);
 
 
@@ -45,7 +45,8 @@ int main(int argc, char **argv){
 
     //2. Initial guess from RRT style method
     vector<array<double,7>> waypoints = mapSearchThread(&searcher);
-    /*visual.pubWaypoints(waypoints, robot);*/
+
+    visual.pubWaypoints(waypoints, robot);
 
     //3. MPC running
     planningThreadMap(planner, robot, visual, waypoints);
@@ -63,22 +64,28 @@ vector<array<double,7>> mapSearchThread(SEARCHER* searcher_ptr){
 }
 
 
-void planningThreadMap(MotionPlanner& planner,  Panda& robot, Visual& visual, const vector<array<double,7>>& guess){
+void planningThreadMap(MotionPlanner& planner,  Panda& robot, Visual& visual,   vector<array<double,7>>& guess){
     ros::Rate rate(100);
 
+//    planner.setWaypoint(guess, robot);
+    planner.guess(guess, robot);
 
     while (ros::ok()) {
-        ros::spinOnce();
-        rate.sleep();
-        planner.addObstaclesToMPC();
-        auto rst=  planner.generateJointTrajectory(robot);
+            ros::spinOnce();
+            rate.sleep();
 
-        if(rst.first){
-            planner.pubTrajectory(rst.second[0]);
-            visual.pubPredictPath(rst.second, robot);
-        }
-        visual.pubPath();
+//          planner.guess(guess, robot);
+//            planner.goNext(robot);
+
+            auto rst=  planner.generateJointTrajectory(robot);
+
+            if(rst.first){
+                planner.pubTrajectory(rst.second[0]);
+                visual.pubPredictPath(rst.second, robot);
+            }
+            visual.pubPath();
     }
+
 }
 
 
@@ -146,9 +153,9 @@ void planningThread(MotionPlanner& planner,  Panda& robot, Visual& visual){
 #endif
 
 void load_data(string filename){
-    Initial_joints = { 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785};  // home joints
-    Goal_joints = {1.27, 0.48, 0.28, -1.37, 0.04, 1.91, 0.39};
-//    Goal_joints = {-0.46, -0.36, 2.88, -0.85, -2.63, 0.55, 0.95};
+    Initial_joints = {0, -0.785,  0.0, -2.356, 0.0,  1.57, 0.785};  // home joints
+//    Goal_joints = {1.27, 0.48, 0.28, -1.37, 0.04, 1.91, 0.39};  // side wall
+    Goal_joints    = {0,   0.43,    0, -1.76, -0.23, 2.03,  1.11}; // front wall
 
 #if 0
     param::parameter param(filename);

@@ -22,6 +22,8 @@ private:
 
     Eigen::Matrix<double, 7, 1>  jointPos, jointVel;
     Eigen::Vector7d q_init_;
+    vector<double>  gripperPos , gripperVel ;
+
 
     Eigen::Vector7d q_desired_;
     Eigen::Vector3d position_d_;
@@ -32,9 +34,11 @@ private:
 
     ros::NodeHandle nh;
     ros::Publisher tauPub1, tauPub2, tauPub3, tauPub4, tauPub5, tauPub6, tauPub7, orientationErrorPub, positionErrorPub;
+    ros::Publisher posPubLeft, posPubRight;
     ros::Subscriber sensorSub, trjSub_;
 
     std_msgs::Float64 tau1, tau2, tau3, tau4, tau5, tau6, tau7, F;
+    std_msgs::Float64 pos_left_gripper, pos_right_gripper;
     std_msgs::Float64 error_ori;
     msg_pkg::TransformationError error_pos;
 

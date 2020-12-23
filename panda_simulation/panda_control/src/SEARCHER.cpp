@@ -49,7 +49,7 @@ bool SEARCHER::isStateValid(const ob::State *state){
 SEARCHER::SEARCHER(){
     client_ = n_.serviceClient<msg_pkg::Collisioncheck>("collision_check_srv");
     traj_pub_ = n_.advertise<trajectory_msgs::MultiDOFJointTrajectory>("waypoints",1);
-    vis_pub_ = n_.advertise<visualization_msgs::Marker>( "rrt_marker", 10 );
+//    vis_pub_ = n_.advertise<visualization_msgs::Marker>( "rrt_marker", 10 );
     trajPub_ =  n_.advertise<trajectory_msgs::JointTrajectory>("/robot1/jointTrajectory", 2);
 
     collision_check_.callJointStateCB = false;
@@ -75,6 +75,8 @@ SEARCHER::SEARCHER(){
     // construct an instance of  space information from this state space
     si_ = ob::SpaceInformationPtr(new ob::SpaceInformation(space_));
     si_->setStateValidityChecker(std::bind(&SEARCHER::isStateValid, this, std::placeholders::_1 ));
+    si_->setStateValidityCheckingResolution(0.02);
+
     si_->setup();
     // set state validity checking for this space
      start.random();
@@ -84,8 +86,8 @@ SEARCHER::SEARCHER(){
     pdef_ = ob::ProblemDefinitionPtr(new ob::ProblemDefinition(si_));
     // set the start and goal states
     pdef_->setStartAndGoalStates(start, goal);
-//    pdef_->setOptimizationObjective(getPathLengthObjWithCostToGo(si_));
-    pdef_->setOptimizationObjective(getPathLengthObjective(si_));
+   pdef_->setOptimizationObjective(getPathLengthObjWithCostToGo(si_));
+//    pdef_->setOptimizationObjective(getPathLengthObjective(si_));
 
     std::cout << "initialized " << std::endl;
 }
@@ -141,62 +143,72 @@ void SEARCHER::replan(){
 }
 
 std::optional< vector<array<double,7>>> SEARCHER::plan(){
+    int cnt=0;
+    while(path_smooth_ == NULL && cnt<=2000) {
+        cnt++;
 //    auto optimizingPlanner(std::make_shared<og::InformedRRTstar>(si_));
-//    auto optimizingPlanner(std::make_shared<og::RRTstar>(si_));
+//        auto optimizingPlanner(std::make_shared<og::RRTstar>(si_));
+//        optimizingPlanner->setTreePruning(true);
+//        optimizingPlanner->setRange(1);
+//        optimizingPlanner->setRewireFactor(0.1);
 //
-//    optimizingPlanner->setTreePruning(true);
-//    optimizingPlanner->setRange(0.05);
-//    optimizingPlanner->setGoalBias(0.05);
-//    optimizingPlanner->setDelayCC(1);
+//        optimizingPlanner->setGoalBias(0.05);
+//        optimizingPlanner->setNumSamplingAttempts(5000);
 
- //    auto optimizingPlanner(std::make_shared<og::PRM>(si_));  //no good
+//    optimizingPlanner->setNumSamplingAttempts(5000*1000);
+        //    auto optimizingPlanner(std::make_shared<og::PRM>(si_));  //no good
 //    auto optimizingPlanner(std::make_shared<og::RRTConnect>(si_));  //no good
 //    auto optimizingPlanner(std::make_shared<og::BiTRRT>(si_)); // last time use
-    auto optimizingPlanner(std::make_shared<og::RRTConnect>(si_));  //no good
-    optimizingPlanner->setRange(0.05);
+//    auto optimizingPlanner(std::make_shared<og::RRTConnect>(si_));  //no good
+        auto optimizingPlanner(std::make_shared<og::PRM>(si_));  //no good
+ 
 
-    // Set the problem instance for our planner to solve
-    optimizingPlanner->setProblemDefinition(pdef_);
-    optimizingPlanner->setup();
+        // Set the problem instance for our planner to solve
+        optimizingPlanner->setProblemDefinition(pdef_);
+        optimizingPlanner->setup();
 
 
-    // print the settings for this space
-    si_->printSettings(std::cout);
+        // print the settings for this space
+        si_->printSettings(std::cout);
 
-    // print the problem settings
-    pdef_->print(std::cout);
+        // print the problem settings
+//        pdef_->print(std::cout);
 
-    // attempt to solve the problem within one second of planning time
-    ob::PlannerStatus solved = optimizingPlanner->ob::Planner::solve(5.0);
-    if (solved){
+        // attempt to solve the problem within one second of planning time
+        ob::PlannerStatus solved = optimizingPlanner->ob::Planner::solve(10.0);
+        if (solved) {
 
-        std::cout << "Found solution:" << std::endl;
-        ob::PathPtr path = pdef_->getSolutionPath();
-        og::PathGeometric* pth;
-        pth = pdef_->getSolutionPath()->as<og::PathGeometric>();
-        //pth->printAsMatrix(std::cout);
-        //print the path to screen
-        //path->print(std::cout);
-         og::PathSimplifier* pathBSpline = new og::PathSimplifier(si_);
-        path_smooth_ = new og::PathGeometric(dynamic_cast<const og::PathGeometric&>(*pdef_->getSolutionPath()));
-        pathBSpline->smoothBSpline(*path_smooth_,5);
+            std::cout << "Found solution:" << std::endl;
+            ob::PathPtr path = pdef_->getSolutionPath();
+            og::PathGeometric *pth;
+            pth = pdef_->getSolutionPath()->as<og::PathGeometric>();
+            pth->interpolate();
+//        pth->printAsMatrix(std::cout);
+            //print the path to screen
+            //path->print(std::cout);
+            og::PathSimplifier *pathBSpline = new og::PathSimplifier(si_);
+            path_smooth_ = new og::PathGeometric(dynamic_cast<const og::PathGeometric &>(*pdef_->getSolutionPath()));
+            pathBSpline->smoothBSpline(*path_smooth_, 5);
+
 //        getStatesShow(path_smooth_);
 
-        vector<array<double,7>> joints_arr =  getStates(path_smooth_);
-//        vector<array<double,7>> joints_arr =  getStates(path_smooth_);
+//            vector<array<double, 7>> joints_arr = getStates(pth);
+            vector<array<double,7>> joints_arr =  getStates(path_smooth_);
 
-        // Clear memory
-        pdef_->clearSolutionPaths();
-        replan_flag_ = false;
+            // Clear memory
+            pdef_->clearSolutionPaths();
+            replan_flag_ = false;
+            return joints_arr;
 
-        delete path_smooth_;
-        return joints_arr;
+//            delete path_smooth_;
+        } else {
+            ROS_ERROR("No solution found JM");
+            return {};
+        }
     }
-    else{
-        ROS_ERROR("No solution found JM");
-        return {};
-    }
- }
+
+
+}
 
 vector<array<double,7>> SEARCHER::getStates( const ompl::geometric::PathGeometric* path){
     vector<array<double,7>> trajectory_points;
@@ -241,6 +253,6 @@ void SEARCHER::pubTrajectory(const std::array<double,7>& trajectory){
 }
 
 ob::OptimizationObjectivePtr getPathLengthObjective(const ob::SpaceInformationPtr& si){
-//    return ob::OptimizationObjectivePtr(new ob::PathLengthOptimizationObjective(si));
-    return ob::OptimizationObjectivePtr(new ob::MaximizeMinClearanceObjective(si));
+    return ob::OptimizationObjectivePtr(new ob::PathLengthOptimizationObjective(si));
+//    return ob::OptimizationObjectivePtr(new ob::MaximizeMinClearanceObjective(si));
  }

@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
          rate.sleep();
 
          Eigen::Vector7d home_q;
-         home_q << 0, -0.785, 0, -2.356, 0, 1.57, 0.785;
+         home_q << 0, -0.58, 0, -1.76, -0.23, 2.73, 0.79;
 
          trajectory_msgs::JointTrajectoryPoint j_p;
          trajectory_msgs::JointTrajectory j_traj;

@@ -306,7 +306,7 @@ void CollisionCheck::getCollisionsInRange(const double& range) {
     }
     near_points.shrink_to_fit();
     sizes.shrink_to_fit();
-    //publishInRange(near_points, sizes);
+    publishInRange(near_points, sizes);
     publishBoxes(near_points, sizes);
 
 }

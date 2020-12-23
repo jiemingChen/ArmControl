@@ -76,6 +76,8 @@
             <mu2>0.2</mu2>
         </gazebo>
 
+ 
+
     </xacro:macro>
 
 </robot>

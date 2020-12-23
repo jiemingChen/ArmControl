@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
-    <param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05small.bt" /> 
+    <param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05hard.bt" /> 
     <group ns="/robot1">
         <param name="tf_prefix" value="panda1" />
         <param name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/model_hand.urdf "/>    

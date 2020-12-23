@@ -10,7 +10,7 @@
   <xacro:include filename="$(find franka_description)/robots/hand.xacro"/>
   <xacro:include filename="$(find franka_description)/robots/panda.gazebo.xacro"/>
   <xacro:include filename="$(find franka_description)/robots/panda.transmission.xacro"/>
-  <xacro:include filename="$(find franka_description)/robots/plugin.xacro"/>
+ 
 
   <!-- Robot arm definition-->
   <xacro:panda_arm />

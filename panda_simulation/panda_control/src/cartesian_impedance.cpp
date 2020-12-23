@@ -25,20 +25,26 @@ Controller::Controller(){
     tauPub5 = nh.advertise<std_msgs::Float64>("/robot1/panda_joint5_controller/command", 20);
     tauPub6 = nh.advertise<std_msgs::Float64>("/robot1/panda_joint6_controller/command", 20);
     tauPub7 = nh.advertise<std_msgs::Float64>("/robot1/panda_joint7_controller/command", 20);
+
+    posPubLeft = nh.advertise<std_msgs::Float64>("/robot1/panda_leftfinger_controller/command", 20);
+    posPubRight = nh.advertise<std_msgs::Float64>("/robot1/panda_rightfinger_controller/command", 20);
+
     sensorSub = nh.subscribe("/robot1/joint_states", 1, &Controller::jointStatesCallback, this);
     trjSub_ =  nh.subscribe ("/robot1/jointTrajectory", 4, &Controller::trajCallback, this);
 
     orientationErrorPub =  nh.advertise<std_msgs::Float64>("/robot1/orientation_error", 20);
     positionErrorPub =  nh.advertise<msg_pkg::TransformationError>("/robot1/position_error", 20);
 
-    q_init_ << 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785;  // home joints
-//    q_init_ << -2.65559, 0.134273, -2.73843, -2.02237, -1.78129,  2.22934, -0.366547;
+    //q_init_ << 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785;  // home joints
+    q_init_ << 0, -0.58, 0, -1.76, -0.23, 2.73, 0.79;
 
      jointPos = q_init_; q_desired_=q_init_;
     jointVel.setZero();
 
     time_main_ = 0;
     error_pos.pos_error.reserve(3);
+
+    gripperPos.resize(2); gripperVel.resize(2);
 }
 
 void Controller::poseError(Panda & robot){
@@ -93,6 +99,7 @@ void Controller::jointPDControl(Panda & robot){
     Eigen::Vector7d joint_error;
     for(auto i=0; i<7; i++){
         joint_error(i) = (q_desired_(i) - jointPos(i) )*10 - 6*jointVel(i) ;
+//        joint_error(i) = (q_desired_(i) - jointPos(i) )*30 - 6*jointVel(i) ;  //test for gripper
     }
 
     Eigen::Vector7d tau_task;
@@ -201,9 +208,14 @@ void Controller::setGoal(Panda & robot){
 }
 
 void Controller::jointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg){
-    for( int i = 0; i < 7; i++ ) {
-        jointPos(i) = msg->position[i];
-        jointVel(i) = msg->velocity[i];
+
+    for( int i = 0; i < 2; i++ ) {
+        gripperPos[i] = msg->position[i];
+        gripperVel[i] = msg->velocity[i];
+    }
+    for( int i = 2; i < 9; i++ ) {
+        jointPos(i-2) = msg->position[i];
+        jointVel(i-2) = msg->velocity[i];
     }
     if (dataReceived == 0){
         dataReceived = 1;
@@ -239,6 +251,12 @@ void Controller::computeActions(){
     tauPub1.publish(tau1); tauPub2.publish(tau2); tauPub3.publish(tau3);
     tauPub4.publish(tau4); tauPub5.publish(tau5); tauPub6.publish(tau6);
     tauPub7.publish(tau7);
+
+    pos_left_gripper.data = gripperPos[0] *3;
+    pos_right_gripper.data = gripperPos[1] *3;
+
+    posPubLeft.publish(pos_left_gripper);
+    posPubRight.publish(pos_right_gripper);
 }
 
 void Controller::nullSpaceControl(Panda& robot){

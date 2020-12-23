@@ -552,7 +552,10 @@ void generateBoxesFromOctomap(std::vector<CollisionObject<S>*>& boxes, OcTree<S>
 
     S cost = boxes_[i][4];
     S threshold = boxes_[i][5];
-
+    // filter ground JM
+    if(z<=0.03){
+      continue;
+    }
     Box<S>* box = new Box<S>(size, size, size);
     box->cost_density = cost;
     box->threshold_occupied = threshold;

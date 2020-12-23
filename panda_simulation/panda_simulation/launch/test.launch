@@ -1,16 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <launch>
-    <param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05hard.bt" /> 
-  <!-- This argument sets the initial joint states -->
-  <arg name="initial_joint_states"
-    default=" -J panda_joint1 0.000
-              -J panda_joint2 -0.785
-              -J panda_joint3 0.0
-              -J panda_joint4 -2.356
-              -J panda_joint5 0.0
-              -J panda_joint6 1.57
-              -J panda_joint7 0.785"/>
-
 
     <!-- GAZEBO arguments -->
     <arg name="paused" default="false"/>
@@ -18,54 +7,59 @@
     <arg name="gui" default="true"/>
     <arg name="headless" default="false"/>
     <arg name="debug" default="false"/>
-    <arg name="load_gripper" default="true"/>
-
-    <!--launch GAZEBO with own world configuration-->
-
+    <arg name="load_gripper" default="false"/>
+    <arg name="world_name" default="$(find panda_simulation)/worlds/wall_world2.xml"/>
+    <!--launch GAZEBO with own world configuration -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
       	<arg name="debug" value="$(arg debug)"/>
         <arg name="gui" value="$(arg gui)"/>
         <arg name="paused" value="$(arg paused)"/>
         <arg name="use_sim_time" value="$(arg use_sim_time)"/>
         <arg name="headless" value="$(arg headless)"/>
-    </include> 
+        <arg name="world_name" value="$(arg world_name)"/>
+    </include>
 
     <!-- Robots -->
     <!-- Load joint effort controller configurations from YAML file to parameter server -->
     <group ns="/robot1">
         <param name="tf_prefix" value="panda1" />
         <param name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm_world.urdf.xacro"/>
-        <rosparam file="$(find panda_simulation)/config/panda_controltorque.yaml" command="load" ns="/robot1"/>
+        <rosparam file="$(find panda_simulation)/config/panda_control.yaml" command="load" ns="/robot1"/>
 
         <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model"
           args="-param robot_description -urdf -model robot1
-  	  -J panda_joint1  0
-          -J panda_joint2 -0.58
-          -J panda_joint3  0
-          -J panda_joint4 -1.76
-          -J panda_joint5 -0.23
-          -J panda_joint6  2.73
-          -J panda_joint7  0.79 
-          -J panda_finger_joint2  0
-          -J panda_finger_joint1  0
-   	"/>
+          -J panda_joint1 0
+          -J panda_joint2 0
+          -J panda_joint3 0
+          -J panda_joint4 0
+          -J panda_joint5 0
+          -J panda_joint6 0
+          -J panda_joint7 0"/>
 
         <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="
           --namespace=/robot1
           joint_state_controller
-          panda_joint1_controller panda_joint2_controller
-          panda_joint3_controller panda_joint4_controller
-          panda_joint5_controller panda_joint6_controller panda_joint7_controller   panda_leftfinger_controller panda_rightfinger_controller " />
+	  panda_arm_controller" />
+
+
+
 
         <!-- convert joint states to TF transforms for rviz, etc -->
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
     </group>
 
-    <!-- Launch robot control node, either AIC or MRAC, comment accordingly-->
-    <node pkg="panda_control" type="panda_control_INVDYN" name="panda_control_INVDYN" />
-  
- 
 
+    <!--Record data, change destination according to your account-->
+    <!--node pkg="rosbag" type="record" args="-o /home/corrado/Desktop/rosbag/
+      /robot1/panda_joint1_controller/command
+      /robot1/panda_joint2_controller/command
+      /robot1/panda_joint3_controller/command
+      /robot1/panda_joint4_controller/command
+      /robot1/panda_joint5_controller/command
+      /robot1/panda_joint6_controller/command
+      /robot1/panda_joint7_controller/command
+      /robot1/joint_states
+    " name="record" output="screen"/-->
 
     <!--node pkg="rosbag" type="record" args="-o /home/corrado/Desktop/rosbag/
       /panda_free_energy

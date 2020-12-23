@@ -14,13 +14,14 @@ class MotionPlanner {
 private:
     ros::NodeHandle nh_;
     ros::Subscriber sensorSub_, obsSub_;
-    ros::Publisher trajPub_;
+    ros::Publisher trajPub_, vis_pub_;
     Eigen::Matrix<double, 7, 1> jointPos_;
 
     casadi::Opti opti_;
     Function solver_;
     DMDict arg_;
 
+    double dt_;
     int N_;
     SX X_;
     SX Q_;
@@ -39,6 +40,7 @@ private:
 
     bool first_solve_;
     bool first_receive_;
+    bool last_solve_valid_;
     vector<double> last_x_;
     vector<double> max_limit;
     vector<double> min_limit;
@@ -49,9 +51,14 @@ private:
     Eigen::Vector7d goal_joint_;
     Eigen::Matrix3d ori_desired_;
     Eigen::Vector3d goal_position_;
-
     vector<array<double, 4>> obs_;
+    int obs_nums_;
+    DM obs_data_;
+    SX obs_sx_;
 
+    vector<array<double,7>> initial_guess_;
+    vector<Eigen::Vector3d> wayPoints_;
+    int wayPointID_;
 public :
     MotionPlanner(ros::NodeHandle &);
 
@@ -64,8 +71,11 @@ public :
 
     Eigen::Vector7d iKSolv(const Eigen::Affine3d &, const Eigen::Vector7d &);
     Eigen::Vector7d MPCSolv(const Eigen::Affine3d &, const Eigen::Vector7d &);
-    pair<bool, vector<Eigen::Vector7d>> MPCSolv(const Eigen::Vector7d &);
+    pair<bool, vector<Eigen::Vector7d>> MPCSolv(const Eigen::Vector7d &, Panda& );
 
+    void guess(const vector<array<double,7>>&, Panda& robot);
+    void setWaypoint(  vector<array<double,7>>&, Panda& );
+    void goNext(Panda&);
 
     Eigen::Vector7d followTrajectoryOptim(Panda &);
     Eigen::Vector7d generateTrajectory(Panda & );

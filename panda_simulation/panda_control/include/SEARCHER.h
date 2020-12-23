@@ -23,6 +23,7 @@
 #include <ompl/geometric/planners/rrt/LBTRRT.h>
 #include <ompl/geometric/planners/rrt/RRTXstatic.h>
 #include <ompl/geometric/planners/pdst/PDST.h>
+#include <ompl/geometric/planners/sst/SST.h>
 
 #include <ompl/geometric/planners/prm/SPARStwo.h>
 #include <ompl/geometric/planners/sst/SST.h>
