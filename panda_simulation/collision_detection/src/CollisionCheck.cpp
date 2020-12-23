@@ -647,9 +647,9 @@ void CollisionCheck::expandTreeKDL(const KDL::SegmentMap::const_iterator& segmen
 // ******************** COLLISION CHECKING ********************
 void CollisionCheck::updateTransforms(const std::vector<Real> &jointPositions1){
     for (UInt i = 0; i < this->jointPositions.size(); ++i){
-        this->jointPositions[i] = jointPositions1[i];
-        if(i>6)
-            this->jointPositions[i] = 0; // temp TODO JM for grasp
+        this->jointPositions[i] = jointPositions1[i+2];
+//        if(i>6)
+//            this->jointPositions[i] = 0; // temp TODO JM for grasp
     }
     Real quatX, quatY, quatZ, quatW;
 

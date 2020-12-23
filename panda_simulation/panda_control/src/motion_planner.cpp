@@ -340,14 +340,13 @@ void MotionPlanner::buildMPC() {
             f_ += pow(Qdot_(i, k)-Qdot_(i, k-1), 2)*0.3;
     }
     // 3---- close to middle cost --------
-    vector<double> joint_weight = {0.2, 0.2, 2, 1, 1.4, 1, 0.8};
-//    for(uint k=1; k<N_; ++k) {
-//        for (uint i = 0; i < 7; i++) {
-//            f_ += pow((Q_(i, k)-avg_limit_[i])/dq_max_limit[i], 2)*joint_weight[i]  ;
-//        }
-//    }
+    vector<double> joint_weight = {0.02, 0.02, 0.2, 0.1, 0.14, 0.1, 0.08};
+    for(uint k=1; k<N_; ++k) {
+        for (uint i = 0; i < 7; i++) {
+            f_ += pow((Q_(i, k)-avg_limit_[i])/dq_max_limit[i], 2)*joint_weight[i]  ;
+        }
+    }
     // 4---- collision cost --------
-//    SX ff=0;
      for(uint k=1; k<N_+1; ++k) {
         auto links =  forwardKinematicMultiLinks( Q_(all, k) );
         for(auto& pairr: links){
@@ -361,14 +360,19 @@ void MotionPlanner::buildMPC() {
                                 +pow(transform(2,3)-obs_sx_(j*4+2), 2), 0.5 ) ;
 //                f_ += if_else( dist<=field_radius+0.05, pow( (1/dist- 1/(field_radius+0.05)), 2)* 80000, SXElem(0));
                 f_ += if_else( dist<=field_radius+0.05, pow( (1/dist- 1/(field_radius+0.05)), 4)* 800000, SXElem(0));
-
  //                f_ += if_else( dist<=field_radius, pow( (1/dist- 1/field_radius), 2)* 40000,  SXElem(0));
              }
         }
-//         f_ += 1/ff;
+     }
+     // 5---- orientation cost --------
+    for (int k=1;k<N_+1;++k) {
+        SX transform =  forwardKinematic( Q_(all, k));
+        auto ori_error = oriError3(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
+        f_ += ori_error * 25;
+//        f_ += pow(ori_error, 2) * 25;
     }
-
-    // ---- constraints function ---------
+    
+     // ---- constraints function ---------
     g_orientation_ = SX(1*(N_), 1);
     g_q_kin_       = SX(7*(N_), 1);
     g_inital_      = SX(7,1);
@@ -427,9 +431,11 @@ void MotionPlanner::buildMPC() {
 //    zero_vec = vector<double> (N_ , 0);
 //    lbg_vec.insert(lbg_vec.end(), zero_vec.begin(), zero_vec.end());  // orientation constraints
 //    ubg_vec.insert(ubg_vec.end(), zero_vec.begin(), zero_vec.end());
+
     zero_vec = vector<double>(7*N_,0);
     lbg_vec.insert(lbg_vec.end(), zero_vec.begin(), zero_vec.end());  // kinematics constraints
     ubg_vec.insert(ubg_vec.end(), zero_vec.begin(), zero_vec.end());
+
     zero_vec = vector<double>(7,0);
     lbg_vec.insert(lbg_vec.end(), zero_vec.begin(), zero_vec.end());  //  initial value constraints
     ubg_vec.insert(ubg_vec.end(), zero_vec.begin(), zero_vec.end());
@@ -440,7 +446,7 @@ void MotionPlanner::buildMPC() {
     nlp_ = {{"x", SX::vertcat({vec(Q_), vec(Qdot_)})},
             {"f", f_},
             //{"g", vertcat(g_orientation, g_q_kin, g_inital) }, //
-            {"g", vertcat(  g_q_kin_, g_inital_)},
+            {"g", vertcat( g_q_kin_, g_inital_)},
             {"p", vertcat(vertcat(joint_position_desired_, orientation_desired_,feedback_variable_, position_desired_), obs_sx_) } };
 
     // ----arg--------
@@ -453,8 +459,6 @@ void MotionPlanner::buildMPC() {
     solver_ = nlpsol("solver", "ipopt", nlp_, opts);
 }
 
-void MotionPlanner::addObstaclesToMPC() {
-}
 
 
 //******************** casadi solve function ik, work space, joint space *******************************
@@ -1203,7 +1207,9 @@ SX MotionPlanner::oriError3(const SX& r, const SX& r2){
     res_temp(1) = mtimes(r(all, 1).T(), r_reshaped2(all, 1 )) - 1;
     res_temp(2) = mtimes(r(all, 2).T(), r_reshaped2(all, 2 )) - 1;
 
-    res = pow(res_temp(0),2) + pow(res_temp(1), 2) + pow(res_temp(2),2);
+//    res = pow(res_temp(0),2) + pow(res_temp(1), 2) + pow(res_temp(2),2);
+    res = pow(res_temp(0),2) + pow(res_temp(1), 2);
+
     return res;
 //    return res*0.5;
 
