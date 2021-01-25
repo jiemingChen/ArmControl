@@ -35,10 +35,10 @@ Controller::Controller(){
     orientationErrorPub =  nh.advertise<std_msgs::Float64>("/robot1/orientation_error", 20);
     positionErrorPub =  nh.advertise<msg_pkg::TransformationError>("/robot1/position_error", 20);
 
-    //q_init_ << 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785;  // home joints
+//    q_init_ << 0, -0.785, 0.0, -2.356, 0.0, 1.57, 0.785;  // home joints
     q_init_ << 0, -0.58, 0, -1.76, -0.23, 2.73, 0.79;
 
-     jointPos = q_init_; q_desired_=q_init_;
+     jointPos = q_init_; q_desired_=q_init_; qdot_desired = Eigen::Vector7d::Zero();
     jointVel.setZero();
 
     time_main_ = 0;
@@ -98,8 +98,8 @@ void Controller::jointPDControl(Panda & robot){
 
     Eigen::Vector7d joint_error;
     for(auto i=0; i<7; i++){
-        joint_error(i) = (q_desired_(i) - jointPos(i) )*10 - 6*jointVel(i) ;
-//        joint_error(i) = (q_desired_(i) - jointPos(i) )*30 - 6*jointVel(i) ;  //test for gripper
+        joint_error(i) = (q_desired_(i) - jointPos(i) )*10 - 6*jointVel(i) ;  //original
+//        joint_error(i) = (q_desired_(i) - jointPos(i) )*10 + 6*(qdot_desired(i) - jointVel(i));
     }
 
     Eigen::Vector7d tau_task;
@@ -208,7 +208,24 @@ void Controller::setGoal(Panda & robot){
 }
 
 void Controller::jointStatesCallback(const sensor_msgs::JointState::ConstPtr& msg){
+    int joint_idx=0, gripper_idx=0;
+    for (size_t i = 0; i < 9; i++){
+        if(msg->name[i] == "panda_finger_joint1" || msg->name[i] == "panda_finger_joint2"){
+            if(msg->name[i] == "panda_finger_joint1")
+                gripper_idx=0;
+            else
+                gripper_idx=1;
+            gripperPos[gripper_idx] = msg->position[i];
+            gripperVel[gripper_idx] = msg->velocity[i];
+          }
+        else{
+            jointPos(joint_idx) = msg->position[i];
+            jointVel(joint_idx) = msg->velocity[i];
+            joint_idx++;
+        }
+    }
 
+    /*
     for( int i = 0; i < 2; i++ ) {
         gripperPos[i] = msg->position[i];
         gripperVel[i] = msg->velocity[i];
@@ -217,6 +234,7 @@ void Controller::jointStatesCallback(const sensor_msgs::JointState::ConstPtr& ms
         jointPos(i-2) = msg->position[i];
         jointVel(i-2) = msg->velocity[i];
     }
+     */
     if (dataReceived == 0){
         dataReceived = 1;
     }
@@ -226,6 +244,8 @@ void Controller::trajCallback(const trajectory_msgs::JointTrajectoryConstPtr& ms
     auto points = msg->points;
 
     q_desired_ = Eigen::Map<Eigen::Vector7d>(points[0].positions.data());
+    qdot_desired = Eigen::Map<Eigen::Vector7d>(points[0].velocities.data());
+
 }
 
 void Controller::pubError(){

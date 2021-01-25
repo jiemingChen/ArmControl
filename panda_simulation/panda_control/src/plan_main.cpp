@@ -4,7 +4,7 @@
 #include "common.h"
 #include "Panda.h"
 #include "visualize.h"
-#include "param.hpp"
+#include "xxx/param.hpp"
 
 #include "motion_planner.h"
 #include "SEARCHER.h"
@@ -44,14 +44,16 @@ int main(int argc, char **argv){
     initialze_modules(searcher, planner, robot);
 
     //2. Initial guess from RRT style method
-    vector<array<double,7>> waypoints = mapSearchThread(&searcher);
-
+    vector<array<double,7>> waypoints;
+     waypoints = mapSearchThread(&searcher);
     visual.pubWaypoints(waypoints, robot);
 
     //3. MPC running
     planningThreadMap(planner, robot, visual, waypoints);
 
- }
+    //4. record data
+    write_solver_data();
+}
 
 vector<array<double,7>> mapSearchThread(SEARCHER* searcher_ptr){
     vector<array<double,7>>waypoints;
@@ -85,7 +87,7 @@ void planningThreadMap(MotionPlanner& planner,  Panda& robot, Visual& visual,   
             }
             visual.pubPath();
     }
-
+//    std::cout << "Time difference = " << planner.averageTime() << "[ms]" << std::endl;
 }
 
 
@@ -109,6 +111,8 @@ void initialze_modules(SEARCHER& searcher, MotionPlanner& planner, Panda& robot)
     planner.setGoal(robot, Goal_joints);
     //planner.buildModel2();
     planner.buildMPC();
+//    planner.buildMPCNormalize();
+
 }
 
 #if 0
@@ -155,7 +159,8 @@ void planningThread(MotionPlanner& planner,  Panda& robot, Visual& visual){
 void load_data(string filename){
     Initial_joints = {0, -0.785,  0.0, -2.356, 0.0,  1.57, 0.785};  // home joints
 //    Goal_joints = {1.27, 0.48, 0.28, -1.37, 0.04, 1.91, 0.39};  // side wall
-    Goal_joints    = {0,   0.43,    0, -1.76, -0.23, 2.03,  1.11}; // front wall
+    Goal_joints    = {0,   0.43,    0, -1.76, -0.23, 2.03,  1.11}; // down wall
+    Goal_joints    = {0,   0.97,    0, -0.98,  0.00, 3.49,  0.79}; // down wall  and orientation constraint
 
 #if 0
     param::parameter param(filename);
@@ -193,7 +198,7 @@ void write_ee_data(){
 }
 void write_solver_data(){
     std::cout << "writing solver info into file..." << std::endl;
-    ofstream output_file("/home/jieming/catkin_ws/data/solverinfo/1.txt");
+    ofstream output_file("/home/jieming/catkin_ws/data/solverinfo/time_obs_closemidterm.txt");
 
     for (uint i = 0; i < solver_info.size(); i++){
         double time = solver_info[i].second;

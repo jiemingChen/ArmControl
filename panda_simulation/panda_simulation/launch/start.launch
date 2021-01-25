@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+     <param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05hard.bt" /> 
+    <!-- Robots -->
+    <!-- Load joint effort controller configurations from YAML file to parameter server -->
+    <group ns="/robot1">
+        <param name="tf_prefix" value="panda1" />
+        <param name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/panda_arm_world.urdf.xacro"/>
+
+        <!-- convert joint states to TF transforms for rviz, etc -->
+        <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
+        <!--node name="pub_data_node" pkg="pub_data" type="pub_data_node" respawn="true" output="screen" /-->
+
+    </group>
+  
+
+    <!--node pkg="rosbag" type="record" args="-o /home/corrado/Desktop/rosbag/
+      /panda_free_energy
+    " name="record" output="screen"/-->
+
+</launch>

@@ -36,7 +36,7 @@
 #include <msg_pkg/Collisioncheck.h>
 
 #include "collision_detect/CollisionCheck.h"
-
+#include "Panda.h"
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
@@ -63,7 +63,9 @@ private:
     ros::ServiceClient client_ ;
 
     CollisionCheck collision_check_;
+    Panda robot_;
     bool isStateValid(const ob::State *state);
+    bool isStateValid2(const ob::State *state);
 
 public:
     // Constructor

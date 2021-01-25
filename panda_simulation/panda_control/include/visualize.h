@@ -61,7 +61,8 @@ public:
 
         Eigen::Affine3d desir_transform;
         Eigen::Vector3d desir_position;
-        for(auto& joint_point: path){
+        for(size_t i=2; i<path.size(); i++){
+            auto joint_point = path[i];
             robot.setJoints(joint_point, Eigen::Vector7d::Zero());
             desir_transform = robot.fkEE();
             desir_position = desir_transform.translation();
