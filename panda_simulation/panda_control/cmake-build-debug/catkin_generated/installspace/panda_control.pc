@@ -1,0 +1,8 @@
+prefix=/usr/local
+
+Name: panda_control
+Description: Description of panda_control
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: roscpp rospy sensor_msgs std_msgs geometry_msgs

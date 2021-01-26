@@ -291,14 +291,14 @@ void MotionPlanner::buildModel2() {
     solver_ = nlpsol("solver", "ipopt", nlp, opts);
 
 }
-#if 0
+#if 1
 void MotionPlanner::buildMPC() {
 
     Slice all;
     Slice last_col(3,4);
 
     N_ = 15;
-    obs_nums_ = 100; //300
+    obs_nums_ = 115; //300
     // ---- parameter ---------
     position_desire_data_ = DM(3,1);
     joint_position_desired_data_ = DM(7,1);
@@ -346,7 +346,7 @@ void MotionPlanner::buildMPC() {
             f_ += pow(Qdot_(i, k)-Qdot_(i, k-1), 2)*0.3;
     }
     // 3---- close to middle cost --------
-    vector<double> joint_weight = {0.02, 0.02, 0.2, 0.1, 0.14, 0.1, 0.08};
+    vector<double> joint_weight = {0.02, 0.02, 0.2, 0.08, 0.2, 0.08, 0.08};
     for(uint k=1; k<N_; ++k) {
         for (uint i = 0; i < 7; i++) {
             f_ += pow((Q_(i, k)-avg_limit_[i])/dq_max_limit[i], 2)*joint_weight[i]  ;
@@ -370,186 +370,11 @@ void MotionPlanner::buildMPC() {
              }
         }
      }
-//     // 5---- orientation cost --------
-//    for (int k=1;k<N_+1;++k) {
-//        SX transform =  forwardKinematic( Q_(all, k));
-//        auto ori_error = oriError3(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
-//        f_ += ori_error * 25;
-////        f_ += pow(ori_error, 2) * 25;
-//    }
-    
-     // ---- constraints function ---------
-    g_orientation_ = SX(1*(N_), 1);
-    g_q_kin_       = SX(7*(N_), 1);
-    g_inital_      = SX(7,1);
-    g_obs_         = SX(N_*5,1);
-    // 1---- orientation constraints --------
+     // 5---- orientation cost --------
     for (int k=1;k<N_+1;++k) {
         SX transform =  forwardKinematic( Q_(all, k));
         auto ori_error = oriError3(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
-        g_orientation_(0+(k-1)) = ori_error(0);
-    }
-    // 2---- joint differential kinematics --------
-    for (int k=1; k<N_+1; ++k) {
-        for(uint i=0; i<7; i++){
-            g_q_kin_(i+7*(k-1)) = Q_(i,k) - Q_(i,k-1) - Qdot_(i,k-1)*dt_;
-        }
-    }
-    // 3---- initial value constraints --------
-    for(uint i=0; i<7; i++) {
-        g_inital_(i) = Q_(i, 0) - feedback_variable_(i);
-    }
-    // ---- obstacles constraints --------
-    vector<double> lower_bound_v, upper_bound_v;
-    // k:steps  i:multi-links  j:obs
-#if 0
-    for(uint k=1; k<N_+1; ++k) {
-        auto links =  forwardKinematicMultiLinks( Q_(all, k) );
-        for(uint i=0; i<links.size(); i++){ //5
-            auto pairr = links[i];
-            auto transform = pairr.first;
-            auto link_radius = pairr.second;
-            double field_radius = link_radius + 0.05;  // object radius
-
-            for(uint j=0; j<obs_.size(); j++){
-                auto dist = pow(pow(transform(0,3)-obs_[j][0], 2) + pow(transform(1,3)-obs_[j][1], 2) + pow(transform(2,3)-obs_[j][2], 2), 0.5);
-                g_obs_(i + (k-1)*5 )= dist;
-                lower_bound_v.push_back(field_radius);
-                upper_bound_v.push_back(10000);
-            }
-        }
-    }
-#endif
-    // ----bounds--------
-    vector<double> lbx_vec, ubx_vec;
-    for(auto i=0; i<N_+1; i++){
-        lbx_vec.insert(lbx_vec.end(), min_limit.begin(), min_limit.end());  // joint range
-        ubx_vec.insert(ubx_vec.end(), max_limit.begin(), max_limit.end());
-    }
-    for(auto i=0; i<N_; i++){
-        lbx_vec.insert(lbx_vec.end(), dq_min_limit.begin(), dq_min_limit.end());  // joint speed range
-        ubx_vec.insert(ubx_vec.end(), dq_max_limit.begin(), dq_max_limit.end());
-    }
-
-    vector<double> lbg_vec, ubg_vec;
-    vector<double> zero_vec;
-
-//    zero_vec = vector<double> (N_ , 0);
-//    lbg_vec.insert(lbg_vec.end(), zero_vec.begin(), zero_vec.end());  // orientation constraints
-//    ubg_vec.insert(ubg_vec.end(), zero_vec.begin(), zero_vec.end());
-
-    zero_vec = vector<double>(7*N_,0);
-    lbg_vec.insert(lbg_vec.end(), zero_vec.begin(), zero_vec.end());  // kinematics constraints
-    ubg_vec.insert(ubg_vec.end(), zero_vec.begin(), zero_vec.end());
-
-    zero_vec = vector<double>(7,0);
-    lbg_vec.insert(lbg_vec.end(), zero_vec.begin(), zero_vec.end());  //  initial value constraints
-    ubg_vec.insert(ubg_vec.end(), zero_vec.begin(), zero_vec.end());
-
-//    lbg_vec.insert(lbg_vec.end(), lower_bound_v.begin(), lower_bound_v.end());  //  obstacles constraints
-//    ubg_vec.insert(ubg_vec.end(), upper_bound_v.begin(), upper_bound_v.end());
-
-    nlp_ = {{"x", SX::vertcat({vec(Q_), vec(Qdot_)})},
-            {"f", f_},
-            //{"g", vertcat(g_orientation, g_q_kin, g_inital) }, //
-            {"g", vertcat( g_q_kin_, g_inital_)},
-            {"p", vertcat(vertcat(joint_position_desired_, orientation_desired_,feedback_variable_, position_desired_), obs_sx_) } };
-
-    // ----arg--------
-    arg_["lbx"] = lbx_vec;  arg_["ubx"] = ubx_vec;
-    arg_["lbg"] = lbg_vec;  arg_["ubg"] = ubg_vec;
-
-    Dict opts;
-    opts["ipopt.print_level"] = 0;
-
-    solver_ = nlpsol("solver", "ipopt", nlp_, opts);
-}
-#endif
-
-#if 0
-void MotionPlanner::buildMPC() {
-    Slice all;
-    Slice last_col(3,4);
-
-    N_ = 15;
-    obs_nums_ = 100; //300
-    // ---- parameter ---------
-    position_desire_data_ = DM(3,1);
-    joint_position_desired_data_ = DM(7,1);
-    orientation_desire_data_ = DM(9,1);
-    x0_data_ = DM(14*N_+7, 1);  // 7+7   q, qdot
-    Q0_data_ = DM(7,1);
-    obs_data_ = DM(obs_nums_*4, 1);
-
-    // ---- decision variables ---------
-    Q_ = SX::sym("Q", 7, N_+1); // joint trajectory
-    Qdot_ = SX::sym("dQ", 7, N_); // joint trajectory
-    dt_ = 0.1;
-    // ---- parameter variables ---------
-    orientation_desired_ = SX::sym("ori_d",9,1);
-    feedback_variable_   = SX::sym("feedback",7,1);
-    joint_position_desired_ = SX::sym("jointDesir", 7, 1);
-    position_desired_    = SX::sym("pos_d",3,1);
-    obs_sx_ = SX::sym("obs_info", obs_nums_*4, 1);
-
-    // ---- cost function ---------
-    // 1---- desired position cost --------
-    f_ =0;
-#if 0  // joint space
-    for(uint k=1; k<N_; k++){
-        for(uint i=0; i<7; i++)
-            f_ += 2*pow(Q_(i,k) - joint_position_desired_(i), 2);
-    }
-    for(uint i=0; i<7; i++)
-        f_ += 15*pow(Q_(i,N_) - joint_position_desired_(i), 2);
-#else
-    // work space
-    for(uint k=1; k<N_; k++){
-        SX transform =  forwardKinematic( Q_(all, k));
-        for(uint i=0; i<3; i++)
-            f_ += 2*pow(transform(i,3) - position_desired_(i), 2);
-    }
-    SX transform =  forwardKinematic( Q_(all, N_));
-    for(uint i=0; i<3; i++)
-        f_ += 200*pow(transform(i,3) - position_desired_(i), 2);
-//    f_ += 50*oriError3(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
-#endif
-    // 2---- smooth cost --------
-    for(uint k=1; k<N_; ++k){
-        for(uint i=0; i<7; i++)
-            f_ += pow(Qdot_(i, k)-Qdot_(i, k-1), 2)*0.3;
-    }
-    // 3---- close to middle cost --------
-    vector<double> joint_weight = {0.02, 0.02, 0.2, 0.1, 0.14, 0.1, 0.08};
-    for(uint k=1; k<N_; ++k) {
-        for (uint i = 0; i < 7; i++) {
-            f_ += pow((Q_(i, k)-avg_limit_[i])/dq_max_limit[i], 2)*joint_weight[i]  ;
-        }
-    }
-    // 4---- collision cost --------
-    for(uint k=1; k<N_+1; ++k) {
-        auto links =  forwardKinematicMultiLinks( Q_(all, k) );
-        for(auto& pairr: links){
-            auto transform = pairr.first;
-            double link_radius = pairr.second ;
-            Matrix<SXElem> field_radius;
-            for(uint j=0; j<obs_nums_; j++){
-                field_radius =  link_radius + obs_sx_(j*4+3, 0);  // object radius
-
-                auto dist = pow(pow(transform(0,3)-obs_sx_(j*4+0), 2) + pow(transform(1,3)-obs_sx_(j*4+1), 2)
-                                +pow(transform(2,3)-obs_sx_(j*4+2), 2), 0.5 ) ;
-//                f_ += if_else( dist<=field_radius+0.05, pow( (1/dist- 1/(field_radius+0.05)), 2)* 80000, SXElem(0));
-                f_ += if_else( dist<=field_radius+0.05, pow( (1/dist- 1/(field_radius+0.05)), 4)* 800000, SXElem(0));
-                //                f_ += if_else( dist<=field_radius, pow( (1/dist- 1/field_radius), 2)* 40000,  SXElem(0));
-            }
-        }
-    }
-//     // 5---- orientation cost --------
-    for (int k=1;k<N_+1;++k) {
-        SX transform =  forwardKinematic( Q_(all, k));
-        auto ori_error = oriError3(transform(Slice(0,3), Slice(0,3)), orientation_desired_);
-        f_ += ori_error * 25;
-//        f_ += pow(ori_error, 2) * 25;
+        f_ += ori_error * 80; //60
     }
 
     // ---- constraints function ---------
@@ -640,7 +465,7 @@ void MotionPlanner::buildMPC() {
 }
 #endif
 
-#if 1
+#if 0 //ellipse
 void MotionPlanner::buildMPC() {
     Slice all;
     Slice last_col(3,4);
@@ -972,7 +797,7 @@ Eigen::Vector7d MotionPlanner::MPCSolv(const Eigen::Affine3d & goal_pose, const 
 
     return out;
 }
-#if 0
+#if 1
 pair<bool, vector<Eigen::Vector7d>> MotionPlanner::MPCSolv(const Eigen::Vector7d & current_q, Panda& robot){
     // 1. initialize
     for(uint i=0; i<3; i++){
@@ -1063,12 +888,12 @@ pair<bool, vector<Eigen::Vector7d>> MotionPlanner::MPCSolv(const Eigen::Vector7d
     // 2. solve nmpc
     arg_["x0"] = x0_data_;
     arg_["p"]  = vertcat(vertcat(joint_position_desired_data_,  orientation_desire_data_, Q0_data_, position_desire_data_),obs_data_);
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+//    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     DMDict res = solver_(arg_);
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    time = std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count();
-    pair<DM, double> info = make_pair(DM(0), time);
-    solver_info.push_back(info);
+//    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+//    time = std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count();
+//    pair<DM, double> info = make_pair(DM(0), time);
+//    solver_info.push_back(info);
     bool feasible =  solver_.stats().at("success");
     if(!feasible ){
 //        first_solve_ = true;
@@ -1085,14 +910,28 @@ pair<bool, vector<Eigen::Vector7d>> MotionPlanner::MPCSolv(const Eigen::Vector7d
         last_solve_valid_ = true;
         first_solve_ = false;
     }
+    /*
     vector<Eigen::Vector7d> out(N_);
     for(auto i=1; i<N_+1; i++)
         for(auto j=0; j<7; j++)
             out[i-1](j) = vector_x[j+i*7];
+    */
+    vector<Eigen::Vector7d> out(2+N_);
+    for(auto i=1; i<2; i++){
+        for(auto j=0; j<7; j++)
+            out[i-1](j) = vector_x[j+i*7];
+    }
+    for(auto i=0; i<1; i++){
+        for(auto j=0; j<7; j++)
+            out[i+1](j) = vector_x[7*(N_+1)+ j+i*7];
+    }
+    for(auto i=1; i<N_+1; i++)
+        for(auto j=0; j<7; j++)
+            out[i+1](j) = vector_x[j+i*7];
 
     return make_pair(feasible, out);
 }
-#endif
+#else
 pair<bool, vector<Eigen::Vector7d>> MotionPlanner::MPCSolv(const Eigen::Vector7d & current_q, Panda& robot){
     // 1. initialize
     for(uint i=0; i<3; i++){
@@ -1232,6 +1071,7 @@ pair<bool, vector<Eigen::Vector7d>> MotionPlanner::MPCSolv(const Eigen::Vector7d
 
     return make_pair(feasible, out);
 }
+#endif
 
 void MotionPlanner::guess(const vector<array<double,7>>& guess, Panda& robot){
     if(guess.empty()){
