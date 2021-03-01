@@ -8,12 +8,14 @@
 #include "common.h"
 #include "Panda.h"
 #include <casadi/casadi.hpp>
+#include <trajectory_msgs/MultiDOFJointTrajectory.h>
+
 using namespace casadi;
 
 class MotionPlanner {
 private:
     ros::NodeHandle nh_;
-    ros::Subscriber sensorSub_, obsSub_;
+    ros::Subscriber sensorSub_, obsSub_, ellipsSub_;
     ros::Publisher trajPub_, vis_pub_;
     Eigen::Matrix<double, 7, 1> jointPos_;
 
@@ -27,6 +29,7 @@ private:
     SX Q_;
     SX Qdot_;
     SX Q0_;
+
     DM position_desire_data_, x0_data_, orientation_desire_data_, Q0_data_, joint_position_desired_data_;
     SX position_desired_;
     SX orientation_desired_;
@@ -52,13 +55,20 @@ private:
     Eigen::Matrix3d ori_desired_;
     Eigen::Vector3d goal_position_;
     vector<array<double, 4>> obs_;
+    vector<array<double, 6>> ellips_;
+
     int obs_nums_;
     DM obs_data_;
     SX obs_sx_;
+    DM ellips_data_;
+    SX ellips_sx_;
 
     vector<array<double,7>> initial_guess_;
     vector<Eigen::Vector3d> wayPoints_;
     int wayPointID_;
+
+    float time;
+    float cnt;
 public :
     MotionPlanner(ros::NodeHandle &);
 
@@ -66,9 +76,9 @@ public :
     void buildModel();
     void buildModel2();
     void buildMPC();
-    void addObstaclesToMPC();
-
-
+    void buildMPCNormalize();
+    SX parametricNormalize(SX&, int, double, double, double);
+    double averageTime();
     Eigen::Vector7d iKSolv(const Eigen::Affine3d &, const Eigen::Vector7d &);
     Eigen::Vector7d MPCSolv(const Eigen::Affine3d &, const Eigen::Vector7d &);
     pair<bool, vector<Eigen::Vector7d>> MPCSolv(const Eigen::Vector7d &, Panda& );
@@ -95,21 +105,19 @@ public :
 
     void copy(SX &mx, const vector<vector<SX>> &data);
 
-    void jointStatesCallback(const sensor_msgs::JointState::ConstPtr &msg) {
-        if (!first_receive_)
-            first_receive_ = true;
-        for (int i = 0; i < 7; i++)
-            jointPos_(i) = msg->position[i];
-    }
+    void jointStatesCallback(const sensor_msgs::JointState::ConstPtr &msg);
     void nearObsCallback(const std_msgs::Float32MultiArray::ConstPtr& msg);
+    void ellipsCallback(const std_msgs::Float32MultiArray::ConstPtr& msg);
+
     bool receiveFeedback() {
         return first_receive_ == true;
     }
-
     Eigen::Vector3d setGoal(Panda&, std::array<double, 7>&);
     void setObstacles(const vector<array<double,4>>&);
-    void pubTrajectory(const Eigen::Vector7d &);
+//    void pubTrajectory(const Eigen::Vector7d &);
+    void pubTrajectory(const vector<Eigen::Vector7d> &);
 
+    trajectory_msgs::MultiDOFJointTrajectory showCollisionPoints();
     std::array<double,7> getJoints(){
         std::array<double,7> rst;
         for(size_t i=0; i<7; i++){

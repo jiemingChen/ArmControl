@@ -62,8 +62,10 @@
     <disable_collisions link1="panda_link7" link2="panda_rightfinger" reason="Never" />
     <disable_collisions link1="panda_link8" link2="panda_rightfinger" reason="Never" />
 
-    <disable_collisions link1="octomap"     link2="panda_rightfinger" reason="default" />
-    <disable_collisions link1="octomap"     link2="panda_leftfinger" reason="default" />
+    <disable_collisions link1="octomap"     link2="panda_leftfinger"       reason="default" />
+    <disable_collisions link1="octomap"     link2="panda_rightfinger"       reason="default" />
+    <disable_collisions link1="stick"     link2="panda_rightfinger"       reason="default" />
+    <disable_collisions link1="stick"     link2="panda_leftfinger"       reason="default" />
     <disable_collisions link1="octomap"     link2="world"       reason="default" />
     <disable_collisions link1="octomap"     link2="virtual_link" reason="default" />
     <disable_collisions link1="octomap"     link2="panda_link8" reason="default" />

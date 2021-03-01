@@ -23,6 +23,9 @@ CollisionCheck::CollisionCheck() : initialized(false), octomapCollisionObject(nu
 
     publisherCollisionModell = nh.advertise<visualization_msgs::MarkerArray>("collision_modell", 3);
     publisherNearObs = nh.advertise<visualization_msgs::MarkerArray>("near_obs", 2);
+    publisherEllip = nh.advertise<visualization_msgs::MarkerArray>("ellip_obs", 2);
+
+    publisherEllipData = nh.advertise<std_msgs::Float32MultiArray>("ellip_data", 2);
     publisherNearBoxes = nh.advertise<std_msgs::Float32MultiArray>("near_boxes", 2);
     sensorSub = nh.subscribe("/robot1/joint_states", 1, &CollisionCheck::jointStatesCallback, this);
 //    traj_pub_ = nh.advertise<trajectory_msgs::MultiDOFJointTrajectory>("waypoints",1);
@@ -198,6 +201,79 @@ void CollisionCheck::publishBoxes(const std::vector<Eigen::Vector3d>& near_point
     publisherNearBoxes.publish(msg);
 }
 
+void CollisionCheck::publishEllip(const std::vector<std::array<double, 6>>& data){
+    if (publisherEllip.getNumSubscribers() == 0)
+        return;
+
+    visualization_msgs::MarkerArray msg;
+    visualization_msgs::Marker marker;
+    msg.markers.reserve(50);
+
+    static uint last_id=0;
+    marker.header.frame_id = "panda1/world";
+    marker.header.stamp = ros::Time::now();
+    marker.id = 600;
+
+    for (std::size_t i=0; i<data.size(); ++i){
+        const auto ellip = data[i];
+
+        marker.pose.position.x = ellip[0];
+        marker.pose.position.y = ellip[1];
+        marker.pose.position.z = ellip[2];
+
+        marker.color.a = 1;
+        marker.color.b = 0.35;
+        marker.color.r = 0.85;
+        marker.color.g = 0.81;
+        marker.type = visualization_msgs::Marker::SPHERE;
+        marker.action = visualization_msgs::Marker::MODIFY;
+//        cout << map_boxes[0]->collisionGeometry()->aabb_radius << endl;
+        marker.scale.x = ellip[3] *2;
+        marker.scale.y = ellip[4] *2;
+        marker.scale.z = ellip[5] *2;
+
+        marker.pose.orientation.w = 1;
+        marker.pose.orientation.x = 0;
+        marker.pose.orientation.y = 0;
+        marker.pose.orientation.z = 0;
+
+        msg.markers.push_back(marker);
+        ++marker.id;
+    }
+
+
+    msg.markers.shrink_to_fit();
+    publisherEllip.publish(msg);
+ }
+
+void CollisionCheck::publishEllipData(const std::vector<std::array<double, 6>>& ellips){
+    if (publisherEllipData.getNumSubscribers() == 0)
+        return;
+
+    std_msgs::Float32MultiArray msg;
+    msg.data.reserve(50);
+
+    if(map_boxes.empty()){
+        //publish zero sizes
+        msg.data.push_back(0);
+    }
+    else{
+        msg.data.push_back(ellips.size());
+
+        for (std::size_t i=0; i<ellips.size(); ++i){
+            auto ellip = ellips[i];
+            msg.data.push_back(ellip[0]);
+            msg.data.push_back(ellip[1]);
+            msg.data.push_back(ellip[2]);
+            msg.data.push_back(ellip[3]);
+            msg.data.push_back(ellip[4]);
+            msg.data.push_back(ellip[5]);
+        }
+    }
+    msg.data.shrink_to_fit();
+    publisherEllipData.publish(msg);
+}
+
 
 bool CollisionCheck::isFirstReceiv(){
     return isFirstReceive;
@@ -308,9 +384,134 @@ void CollisionCheck::getCollisionsInRange(const double& range) {
     sizes.shrink_to_fit();
     publishInRange(near_points, sizes);
     publishBoxes(near_points, sizes);
-
 }
 
+std::vector<std::array<double, 6>> CollisionCheck::getEllipsoid() {
+    std::vector<Eigen::Vector3d> near_points;
+    std::vector<double> sizes;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr occupied_nodes(new pcl::PointCloud<pcl::PointXYZ>());
+
+    for (octomap::OcTree::leaf_iterator it = octTree_.begin_leafs(), end = octTree_.end_leafs(); it != end; ++it) {
+        pcl::PointXYZ cube_center;
+        cube_center.x = it.getX();
+        cube_center.y = it.getY();
+        cube_center.z = it.getZ();
+        //cube_center.intensity = it.getDepth();
+        //  to remove ground here
+        if(it.getZ() <0.05)
+            continue;
+        if (octTree_.isNodeOccupied(*it)) {
+            occupied_nodes->points.push_back(cube_center);
+        }
+    }
+
+    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+    // Create the segmentation object
+    pcl::SACSegmentation<pcl::PointXYZ> seg;
+    // Optional
+    seg.setOptimizeCoefficients (true);
+    // Mandatory
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setDistanceThreshold(0.01);
+
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+
+    std::vector<std::array<double, 6>> ellip; //x0,y0,z0, rx,ry,rz
+
+    std::vector<pcl::PointXYZ> min_points,max_points;
+
+    std::vector<std::pair<std::vector<double>, typename pcl::PointCloud<pcl::PointXYZ>::Ptr>> groups;
+
+
+    while(true){
+        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+        typename pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane(new pcl::PointCloud<pcl::PointXYZ>);
+        typename pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_obj(new pcl::PointCloud<pcl::PointXYZ>);
+        bool flag = false;
+
+        if(occupied_nodes->empty()){
+//            ROS_INFO("nothing");
+            break;
+        }
+
+        seg.setInputCloud(occupied_nodes);
+        seg.segment(*inliers, *coefficients);
+        if(inliers->indices.size () == 0){
+//            ROS_INFO("no more planes");
+            break;
+        }
+        else{
+
+            for(int index: inliers->indices)
+                cloud_plane->points.push_back(occupied_nodes->points[index]);
+
+            if(groups.empty()){
+                std::vector<double> coeff = {coefficients->values[0],coefficients->values[1],coefficients->values[2],coefficients->values[3]};
+                groups.push_back(std::make_pair(coeff, cloud_plane));
+            }
+            else{
+                for(auto i=0; i<groups.size(); i++){
+                    double a=groups[i].first[0]; double b=groups[i].first[1]; double c=groups[i].first[2];
+                    double newa = coefficients->values[0]; double newb = coefficients->values[1];
+                    double newc = coefficients->values[2]; double newd = coefficients->values[3];
+                    for(auto j=3; j<groups[i].first.size(); j++){
+                        double d=groups[i].first[j];
+                        if(a*newa+b*newb+c*newc >0.8 && a*newa+b*newb+c*newc <1.2 && abs(newd-d)<0.07){
+                            for(auto point: cloud_plane->points){
+                                groups[i].second->points.push_back(point);
+                            }
+                            groups[i].first.push_back(newd);
+                            flag = true;
+                            break;
+                        }
+                    }
+                    if(flag){
+                        break;
+                    }
+                }
+                if(!flag){
+                    std::vector<double> coeff = {coefficients->values[0],coefficients->values[1],coefficients->values[2],coefficients->values[3]};
+                    groups.push_back(std::make_pair(coeff, cloud_plane));
+                }
+            }
+
+
+            extract.setInputCloud (occupied_nodes);
+            extract.setIndices (inliers);
+            extract.setNegative(true);
+            extract.filter(*cloud_obj);
+
+            occupied_nodes = cloud_obj;
+
+
+            //            min_points.push_back(min_pt);
+//            max_points.push_back(max_pt);
+         }
+    }
+    for(auto cloud: groups){
+            pcl::PointXYZ min_pt, max_pt;
+            pcl::getMinMax3D(*cloud.second, min_pt, max_pt);
+
+            ellip.push_back({(min_pt.x+max_pt.x)/2.0, (min_pt.y+max_pt.y)/2.0, (min_pt.z+max_pt.z)/2.0,
+                             (max_pt.x-min_pt.x)/sqrt(2.5), (max_pt.y-min_pt.y)/sqrt(2.5), (max_pt.z-min_pt.z+0.05)/sqrt(2)});
+    }
+
+
+
+    publishEllip(ellip);
+    return ellip;
+#if 0
+    for(auto point:minMax_points){
+        Eigen::Vector3d temp;
+        temp<< point.x, point.y, point.z;
+        near_points.push_back(temp);
+        sizes.push_back(0.05);
+    }
+    publishInRange(near_points, sizes);
+#endif
+}
 
 void CollisionCheck::test_distance_spheresphere()
 {
@@ -378,8 +579,8 @@ bool CollisionCheck::initialize(){
 }
 
 bool CollisionCheck::initializeFCL(){
-    std::string robotDescription("/home/jieming/catkin_ws/src/panda_simulation/franka_description/robots/model_hand.urdf");
-    //const auto model = urdf::parseURDF(robotDescription);
+    std::string robotDescription("/home/jieming/catkin_ws/src/panda_simulation/franka_description/robots/model_attachment.urdf");
+    //const auto model = urdf::parseURDF(robotDescription); model_attachment
     boost::shared_ptr<urdf::Model> model(new urdf::Model);
     if (!model->initFile(robotDescription)){
         cout << "Failed to parse urdf file" << endl;
@@ -648,8 +849,8 @@ void CollisionCheck::expandTreeKDL(const KDL::SegmentMap::const_iterator& segmen
 void CollisionCheck::updateTransforms(const std::vector<Real> &jointPositions1){
     for (UInt i = 0; i < this->jointPositions.size(); ++i){
         this->jointPositions[i] = jointPositions1[i+2];
-//        if(i>6)
-//            this->jointPositions[i] = 0; // temp TODO JM for grasp
+       // if(i>6)
+       //     this->jointPositions[i] = 0; // temp TODO JM for grasp
     }
     Real quatX, quatY, quatZ, quatW;
 

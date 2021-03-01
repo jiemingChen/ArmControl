@@ -37,7 +37,6 @@
 #include <octomap/octomap.h>
 
 
-
-#include "franka_model.h"
+ #include "franka_model.h"
 
 #endif //PANDA_CONTROL_COMMON_H

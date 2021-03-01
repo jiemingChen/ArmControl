@@ -3,9 +3,9 @@
     <param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05hard.bt" /> 
     <group ns="/robot1">
         <param name="tf_prefix" value="panda1" />
-        <param name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/model_hand.urdf "/>    
+ 
         <!--rosparam file="$(find panda_simulation)/config/panda_controltorque.yaml" command="load" ns="/robot1"/-->
-
+        <param name="robot_description" command="$(find xacro)/xacro --inorder $(find franka_description)/robots/model_attachment.urdf"/>    
 
         <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true" output="screen" />
 

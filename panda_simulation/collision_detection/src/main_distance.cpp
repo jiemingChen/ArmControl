@@ -21,8 +21,8 @@ int main(int argc, char **argv){
             continue;
         }
 
-        checker.getCollisions();
-         checker.getCollisionsInRange(0.3);
+//        checker.getCollisions();
+        checker.getCollisionsInRange(0.3);
     }
 
 }

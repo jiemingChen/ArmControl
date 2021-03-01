@@ -1,0 +1,8 @@
+prefix=/home/jieming/catkin_ws/src/panda_simulation/collision_detection/cmake-build-debug/devel
+
+Name: collision_detection
+Description: Description of collision_detection
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

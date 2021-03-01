@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- Macro for stick -->
+    <xacro:macro name="stick_urdf"  params="parent">
+        <joint name="stick_joint" type="fixed">
+            <origin xyz="0.185 0 0.03" rpy="0 1.57 0"/>
+            <parent link="${parent}"/>
+            <child link="stick"/>
+            <axis xyz="1 0 0"/>
+        </joint>
+
+        <link name="stick">
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <cylinder radius="0.02" length = "0.4"/>
+                </geometry>
+        	<material name="grey">
+          		<color rgba="0 1.0 1.0 1.0"/>
+        	</material>
+            </visual>
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <cylinder radius="0.02" length = "0.4"/>
+                </geometry>
+            </collision>
+            <cylinder_inertial_matrix  m="0.01" r="0.01" h="0.5" />
+        </link>
+
+ 
+    </xacro:macro>
+  
+</robot>

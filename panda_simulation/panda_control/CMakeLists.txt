@@ -61,19 +61,16 @@ include_directories(
 ## Declare a C++ executable
 #add_executable(${PROJECT_NAME}_INVDYN src/main.cpp src/Invdyn.cpp src/joint_impedancecontrol.cpp src/cartesian_impedance.cpp  src/common_func.cpp)
 
-add_executable(${PROJECT_NAME}_PLAN
-		src/plan_main.cpp   src/Panda.cpp
+add_executable(${PROJECT_NAME}_GRASP
+		src/grasp_plan_main.cpp   src/Panda.cpp
 		src/motion_planner.cpp
 		src/SEARCHER.cpp
 		src/collision_detect/CollisionCheck.cpp
 		src/collision_detect/fcl_utility.cpp
+		src/utils.cpp
 		include/visualize.h
-		include/param.hpp
 		)
-
-add_dependencies(${PROJECT_NAME}_PLAN ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-target_link_libraries(${PROJECT_NAME}_PLAN
+target_link_libraries(${PROJECT_NAME}_GRASP
 		${catkin_LIBRARIES}
 		/home/jieming/catkin_ws/src/panda_simulation/panda_control/lib/libfranka_model.a
 		${orocos_kdl_LIBRARIES}
@@ -82,8 +79,31 @@ target_link_libraries(${PROJECT_NAME}_PLAN
 		fcl
 		${fcl_INCLUDE_DIRS}
 		${OMPL_LIBRARIES}
-		        ${CCD_LIBRARIES}
- 		)
+		${CCD_LIBRARIES}
+		)
+
+#add_executable(${PROJECT_NAME}_PLAN
+#		src/plan_main.cpp   src/Panda.cpp
+#		src/motion_planner.cpp
+#		src/SEARCHER.cpp
+#		src/collision_detect/CollisionCheck.cpp
+#		src/collision_detect/fcl_utility.cpp
+#		include/visualize.h
+ #		)
+
+#add_dependencies(${PROJECT_NAME}_PLAN ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+#target_link_libraries(${PROJECT_NAME}_PLAN
+#		${catkin_LIBRARIES}
+#		/home/jieming/catkin_ws/src/panda_simulation/panda_control/lib/libfranka_model.a
+#		${orocos_kdl_LIBRARIES}
+#		casadi
+#		${OCTOMAP_LIBRARIES}
+#		fcl
+#		${fcl_INCLUDE_DIRS}
+#		${OMPL_LIBRARIES}
+#		        ${CCD_LIBRARIES}
+ #		)
 
 
 
@@ -108,6 +128,14 @@ target_link_libraries(${PROJECT_NAME}_home
 		casadi
 		)
 
+
+
+add_executable(${PROJECT_NAME}_window
+		src/pub_rectangle_main.cpp
+		)
+target_link_libraries(${PROJECT_NAME}_window
+		${catkin_LIBRARIES}
+		)
 
 ## Declare a C++ library
 #add_library(franka_model_Coriolis SHARED

@@ -8,6 +8,7 @@ Optimization-based Trajectory Generation and Collision Avoidance in Gazebo.
 
 ![detecion](gif/nur_mpc_map.gif)  
 ![detecion](gif/hard.gif)  
+![detecion](gif/window.gif)  
 
 Consider Orientation Soft Constraints
 

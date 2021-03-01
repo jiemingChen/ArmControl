@@ -35,6 +35,27 @@ ob::OptimizationObjectivePtr getPathLengthObjWithCostToGo(const ob::SpaceInforma
     return obj;
 }
 
+bool SEARCHER::isStateValid2(const ob::State *state){
+    //add orientation constraints
+    vector<double> joint_pos(7);
+
+    for(size_t j=0; j<7; j++){
+        joint_pos[j] = state->as<ompl::base::RealVectorStateSpace::StateType>()->values[j];
+    }
+    // test orientation
+    robot_.setJoints(Eigen::Map<Eigen::Vector7d>(joint_pos.data()), Eigen::Vector7d::Zero());
+    Eigen::Affine3d trans = robot_.fkEE();
+    Eigen::Matrix3d ori = trans.linear();
+    Eigen::Matrix3d goal_ori;
+    goal_ori << -0.0761281, 0.994439, 0.0727673, 0.996697,  0.0779646, -0.0227356, -0.0282824,  0.0707962 ,  -0.99709;
+    Eigen::Matrix3d error = ori.transpose() * goal_ori;
+    if(error(0,0) > 1.5 || error(1,1)>1.5 || error(2,2)>1.5){
+        return false;
+    }
+    // test collision
+    return !collision_check_.checkCollision(joint_pos);
+}
+
 bool SEARCHER::isStateValid(const ob::State *state){
 //    return true;
     vector<double> joint_pos(7);
@@ -47,8 +68,8 @@ bool SEARCHER::isStateValid(const ob::State *state){
 
 //public
 SEARCHER::SEARCHER(){
-    client_ = n_.serviceClient<msg_pkg::Collisioncheck>("collision_check_srv");
-    traj_pub_ = n_.advertise<trajectory_msgs::MultiDOFJointTrajectory>("waypoints",1);
+//    client_ = n_.serviceClient<msg_pkg::Collisioncheck>("collision_check_srv");
+//    traj_pub_ = n_.advertise<trajectory_msgs::MultiDOFJointTrajectory>("waypoints",1);
 //    vis_pub_ = n_.advertise<visualization_msgs::Marker>( "rrt_marker", 10 );
     trajPub_ =  n_.advertise<trajectory_msgs::JointTrajectory>("/robot1/jointTrajectory", 2);
 
@@ -74,7 +95,7 @@ SEARCHER::SEARCHER(){
 
     // construct an instance of  space information from this state space
     si_ = ob::SpaceInformationPtr(new ob::SpaceInformation(space_));
-    si_->setStateValidityChecker(std::bind(&SEARCHER::isStateValid, this, std::placeholders::_1 ));
+    si_->setStateValidityChecker(std::bind(&SEARCHER::isStateValid2, this, std::placeholders::_1 ));
     si_->setStateValidityCheckingResolution(0.02);
 
     si_->setup();
@@ -161,7 +182,7 @@ std::optional< vector<array<double,7>>> SEARCHER::plan(){
 //    auto optimizingPlanner(std::make_shared<og::BiTRRT>(si_)); // last time use
 //    auto optimizingPlanner(std::make_shared<og::RRTConnect>(si_));  //no good
         auto optimizingPlanner(std::make_shared<og::PRM>(si_));  //no good
- 
+
 
         // Set the problem instance for our planner to solve
         optimizingPlanner->setProblemDefinition(pdef_);

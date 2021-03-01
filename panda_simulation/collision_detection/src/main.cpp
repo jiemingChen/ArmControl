@@ -27,9 +27,11 @@ int main(int argc, char **argv){
             continue;
         }
         checker.showBoxes();
-//        checker.getCollisions();
+        checker.getCollisions();
 //        checker.getCollisionsInRange(0.2);
       }
 
 }
+
+
 

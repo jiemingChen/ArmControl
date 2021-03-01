@@ -25,7 +25,7 @@ private:
     vector<double>  gripperPos , gripperVel ;
 
 
-    Eigen::Vector7d q_desired_;
+    Eigen::Vector7d q_desired_, qdot_desired;
     Eigen::Vector3d position_d_;
     Eigen::Quaterniond orientation_d_;
     Eigen::Matrix<double, 7, 1> u;      // Control actions,  column vector of 7 elements

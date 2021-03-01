@@ -350,7 +350,7 @@ bool CollisionCheck::initialize(){
 }
 
 bool CollisionCheck::initializeFCL(){
-    std::string robotDescription("/home/jieming/catkin_ws/src/panda_simulation/franka_description/robots/model_hand.urdf");
+    std::string robotDescription("/home/jieming/catkin_ws/src/panda_simulation/franka_description/robots/model_attachment.urdf");
     //const auto model = urdf::parseURDF(robotDescription);
     boost::shared_ptr<urdf::Model> model(new urdf::Model);
     if (!model->initFile(robotDescription)){
@@ -620,9 +620,10 @@ void CollisionCheck::expandTreeKDL(const KDL::SegmentMap::const_iterator& segmen
 void CollisionCheck::updateTransforms(const std::vector<Real> &jointPositions1){
     for (UInt i = 0; i < this->jointPositions.size(); ++i){
         this->jointPositions[i] = jointPositions1[i];
-        if(i>6)
-            this->jointPositions[i] = 0; // temp TODO JM for grasp
+//        if(i>6)
+//            this->jointPositions[i] = 0; // temp TODO JM for grasp
     }
+
     Real quatX, quatY, quatZ, quatW;
 
     for (std::vector<Link>::iterator link = links.begin() + 1; link != links.end(); ++link){

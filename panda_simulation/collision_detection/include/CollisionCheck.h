@@ -27,6 +27,12 @@
 #include <sensor_msgs/JointState.h>
 #include <visualization_msgs/MarkerArray.h>
 
+ #include <pcl_conversions/pcl_conversions.h>
+
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/common/common.h>
 using std::cout;
 using std::endl;
 
@@ -61,6 +67,8 @@ public:
     void publishCollisionModell();
     void publishInRange(const std::vector<Eigen::Vector3d>& near_points, std::vector<double>& sizes);
     void publishBoxes(const std::vector<Eigen::Vector3d>& near_points, std::vector<double>& sizes);
+    void publishEllip(const std::vector<std::array<double, 6>>& data);
+    void publishEllipData(const std::vector<std::array<double, 6>>& ellips);
 
     void showBoxes();
 
@@ -78,6 +86,8 @@ public:
     void getCollisions();
 
     void getCollisionsInRange(const double& range);
+
+    std::vector<std::array<double, 6>> getEllipsoid();
 
     void test_distance_spheresphere();
 
@@ -123,8 +133,8 @@ private:
 
     bool initialized;
     ros::NodeHandle nh;
-    ros::Publisher publisherCollisionModell, traj_pub_, publisherNearObs;
-    ros::Publisher publisherNearBoxes;
+    ros::Publisher publisherCollisionModell, traj_pub_, publisherNearObs, publisherEllip;
+    ros::Publisher publisherNearBoxes, publisherEllipData;
     ros::Subscriber sensorSub;
     KDL::Tree kdlTree;
     std::vector<Real> jointPositions;

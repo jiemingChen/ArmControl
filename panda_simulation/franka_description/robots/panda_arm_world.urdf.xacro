@@ -10,7 +10,7 @@
   <xacro:include filename="$(find franka_description)/robots/hand.xacro"/>
   <xacro:include filename="$(find franka_description)/robots/panda.gazebo.xacro"/>
   <xacro:include filename="$(find franka_description)/robots/panda.transmission.xacro"/>
- 
+  <xacro:include filename="$(find franka_description)/robots/hand_attachment.xacro"/>
 
   <!-- Robot arm definition-->
   <xacro:panda_arm />
@@ -18,7 +18,7 @@
   <xacro:hand ns="panda" rpy="0 0 ${-pi/4}" connected_to="panda_link8" />
   <xacro:panda_gazebo robot_name="$(arg robot_name)" />
   <xacro:panda_transmission robot_name="$(arg robot_name)" />
-
-
+  <!-- Attachment -->
+  <xacro:stick_urdf parent="virtual_link" />
 
 </robot>

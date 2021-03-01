@@ -2,9 +2,9 @@
 <launch>
 
    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-	    <!-- resolution in meters per pixel -->
+	    <!-- resolution in meters per pixel   0_1grasp  -->
     	<!--param name="resolution" value="0.10" /-->
-	<param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05hard.bt" />
+	<param name="map_file"  type="string" value="/home/jieming/catkin_ws/src/panda_simulation/panda_simulation/maps/0_05window.bt" />
 	<param name="frame_id" type="string" value="panda1/world" />  
 	<param name="base_frame_id" type="string" value="panda1/panda_link0" />   
 	<param name="resolution" type="double" value="0.05" />   
